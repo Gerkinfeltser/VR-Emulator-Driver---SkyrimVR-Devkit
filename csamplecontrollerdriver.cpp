@@ -90,9 +90,8 @@ vr::EVRInitError CSampleControllerDriver::Activate(vr::TrackedDeviceIndex_t unOb
     vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/x/click", &HButtons[9]);
     vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/y/click", &HButtons[10]);
     vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/trigger/click", &HButtons[11]);
-    vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/trigger/value", &HButtons[12]);
-    vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/trackpad/click", &HButtons[13]);
-    vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/trackpad/touch", &HButtons[14]);
+    vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/trackpad/click", &HButtons[12]);
+    vr::VRDriverInput()->CreateBooleanComponent(m_ulPropertyContainer, "/input/trackpad/touch", &HButtons[13]);
 
     // Analog handles
     vr::VRDriverInput()->CreateScalarComponent(
@@ -185,9 +184,8 @@ void CSampleControllerDriver::RunFrame()
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[9], false, 0);  // X
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[10], false, 0); // Y
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[11], false, 0); // Trigger Click
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[12], false, 0); // Trigger Value
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[13], false, 0); // Trackpad Click
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[14], false, 0); // Trackpad Touch
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[12], false, 0); // Trackpad Click
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[13], false, 0); // Trackpad Touch
 
         vr::VRDriverInput()->UpdateScalarComponent(HAnalog[0], 0.0, 0); //Trackpad x
         vr::VRDriverInput()->UpdateScalarComponent(HAnalog[1], 0.0, 0); //Trackpad y
@@ -209,8 +207,8 @@ void CSampleControllerDriver::RunFrame()
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[10], false, 0); // Y
         bool interactTouch = false, interactClick = false;
         DevkitInput::GetTrackpad(interactTouch, interactClick);
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[13], interactClick || (0x8000 & GetAsyncKeyState(VK_F14)) != 0, 0); // Trackpad Click
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[14], interactTouch || (0x8000 & GetAsyncKeyState(VK_F15)) != 0, 0); // Trackpad Touch
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[12], interactClick || (0x8000 & GetAsyncKeyState(VK_F14)) != 0, 0); // Trackpad Click
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[13], interactTouch || (0x8000 & GetAsyncKeyState(VK_F15)) != 0, 0); // Trackpad Touch
 
         vr::VRDriverInput()->UpdateScalarComponent(HAnalog[0], 0.0, 0); //Trackpad x
         vr::VRDriverInput()->UpdateScalarComponent(HAnalog[1], 0.0, 0); //Trackpad y
