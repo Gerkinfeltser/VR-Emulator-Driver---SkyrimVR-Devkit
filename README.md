@@ -65,7 +65,7 @@ Built in **Visual Studio Community 2022** against **[OpenVR 1.26.7](https://gith
 
 ## License
 
-The repository as a whole is under the BSD 3-Clause license, because almost all of it is Valve Software's OpenVR driver sample. The SkyrimVR Devkit script itself (`SkyrimVR Devkit.ahk`, in the Devkit release zip) is licensed under the GNU General Public License v3, and its `LICENSE.txt` ships in that zip.
+The OpenVR driver and the rest of this repository remain under the BSD 3-Clause license. The AHK frontend is the exception: `frontend/SkyrimVR Devkit.ahk` is licensed under the GNU General Public License v3, with its license in `frontend/LICENSE.txt`. The script and its license also ship in the Devkit release zip.
 
 Note: Older releases includes a portable, renamed copy of the AutoHotkey interpreter engine, which is distributed under the GNU General Public License v2. 
 
