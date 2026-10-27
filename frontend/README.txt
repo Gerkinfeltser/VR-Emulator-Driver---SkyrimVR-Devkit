@@ -96,6 +96,9 @@ CONTROLS
   double-click/Open to restore the window, or choose Quit at the bottom to exit.
   Movement Mode is checked when enabled. MM-ON/OFF icons show that requested state, not temporary
   focus/console pauses; the main window's Live line still reports whether input is active.
+  Settings > General > Enable MM Notification is off by default and persists across restarts.
+  When enabled, each toggle requests a silent, temporary Windows ON/OFF tray notification.
+  Windows controls its duration and may suppress it through notification or Do Not Disturb settings.
 - Unreleased fork checkpoint: Right Grip defaults to G in Settings > Keybinds; Backspace clears it.
   The binding persists, is swallowed only in active Movement Mode, and releases on pause or heartbeat loss.
   An existing G bind wins and leaves Right Grip unbound. Use the matching fork DLL and input profile.

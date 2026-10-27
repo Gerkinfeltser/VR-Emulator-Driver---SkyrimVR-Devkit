@@ -69,6 +69,7 @@ for key, value in ControllerPoseDefaults
 ControllerPoseLimits := Map("x", 2.0, "y", 2.0, "z", 2.0,
                             "pitch", 180.0, "yaw", 180.0, "roll", 180.0)
 MovementModeRequested := false
+MMNotificationEnabled := false
 MovementToggleHotkey := ""
 MovementToggleHotkeyDefault := "^+m"
 MovementToggleHeld := false
@@ -315,9 +316,10 @@ BootstrapFile := Root "\steam_location.ini"
 CommandsFile  := Root "\commands.ini"
 
 LoadControlSettings() {
-    global TurnSpeed, TurnSensitivity, ConsoleMS, BootstrapFile, AutoConsoleView
+    global TurnSpeed, TurnSensitivity, ConsoleMS, BootstrapFile, AutoConsoleView, MMNotificationEnabled
     global MouseLookEnabled, MouseSensitivity, MouseInvertY
     AutoConsoleView := (IniRead(BootstrapFile, "Controls", "AutoConsoleView", "0") = "1")
+    MMNotificationEnabled := (IniRead(BootstrapFile, "Controls", "MMNotificationEnabled", "0") = "1")
     MouseLookEnabled := (IniRead(BootstrapFile, "Controls", "MouseLookEnabled", "1") = "1")
     MouseInvertY := (IniRead(BootstrapFile, "Controls", "MouseInvertY", "0") = "1")
     v := IniRead(BootstrapFile, "Controls", "MouseSensitivity", "")
@@ -335,10 +337,11 @@ LoadControlSettings() {
 }
 
 SaveControlSettings() {
-    global TurnSpeed, TurnSensitivity, ConsoleMS, BootstrapFile, AutoConsoleView
+    global TurnSpeed, TurnSensitivity, ConsoleMS, BootstrapFile, AutoConsoleView, MMNotificationEnabled
     global MouseLookEnabled, MouseSensitivity, MouseInvertY, ControllerPoses, ControllerPoseDefaults
     try {
         IniWrite(AutoConsoleView ? "1" : "0", BootstrapFile, "Controls", "AutoConsoleView")
+        IniWrite(MMNotificationEnabled ? "1" : "0", BootstrapFile, "Controls", "MMNotificationEnabled")
         IniWrite(MouseLookEnabled ? "1" : "0", BootstrapFile, "Controls", "MouseLookEnabled")
         IniWrite(Format("{:.2f}", MouseSensitivity), BootstrapFile, "Controls", "MouseSensitivity")
         IniWrite(MouseInvertY ? "1" : "0", BootstrapFile, "Controls", "MouseInvertY")
@@ -382,6 +385,12 @@ QueueSaveControlSettings() {
 OnAutoConsoleViewChanged(ctrl, *) {
     global AutoConsoleView
     AutoConsoleView := ctrl.Value = 1
+    QueueSaveControlSettings()
+}
+
+OnMMNotificationChanged(ctrl, *) {
+    global MMNotificationEnabled
+    MMNotificationEnabled := ctrl.Value = 1
     QueueSaveControlSettings()
 }
 
@@ -714,7 +723,7 @@ SettingsGui := ""
 
 OpenSettings(*) {
     global SettingsGui, DarkBGStr, DarkFGStr, DarkCtrlBG, InputFGStr
-    global SteamDir, LivePath, TurnSensitivity, TurnSpeed, ConsoleMS, AutoConsoleView
+    global SteamDir, LivePath, TurnSensitivity, TurnSpeed, ConsoleMS, AutoConsoleView, MMNotificationEnabled
     global MovementToggleHotkey, MovementToggleEdit
     global MouseLookEnabled, MouseSensitivity, MouseInvertY, MouseSensLabel
     global SteamEdit, LiveEdit, BtnDownload, SensLabel, SensSlider, BootstrapFile
@@ -755,6 +764,10 @@ OpenSettings(*) {
     chkUpdates := SettingsGui.AddCheckBox("x35 y+12 w420", "Check GitHub for updates when this starts")
     chkUpdates.Value := (IniRead(BootstrapFile, "Updates", "Enabled", "") = "1") ? 1 : 0
     chkUpdates.OnEvent("Click", ToggleUpdateCheck)
+
+    chkMMNotification := SettingsGui.AddCheckBox("x35 y+12 w420", "Enable MM Notification")
+    chkMMNotification.Value := MMNotificationEnabled ? 1 : 0
+    chkMMNotification.OnEvent("Click", OnMMNotificationChanged)
 
     SettingsTabs.UseTab(2)
     SettingsGui.AddText("x35 y55 w300", "Turn Sensitivity")
@@ -2075,7 +2088,7 @@ WarnIfDriverProblem() {
 }
 
 ToggleMovementMode(*) {
-    global MovementModeRequested, BtnMovement, GameConsoleOpen, MovementToggleHeld
+    global MovementModeRequested, BtnMovement, GameConsoleOpen, MovementToggleHeld, MMNotificationEnabled
     MovementModeRequested := !MovementModeRequested
     GameConsoleOpen := false
     if MovementModeRequested {
@@ -2088,6 +2101,8 @@ ToggleMovementMode(*) {
         ReleaseGhostKeys()
     }
     UpdateTrayControls()
+    if MMNotificationEnabled
+        TrayTip("Movement Mode: " (MovementModeRequested ? "ON" : "OFF"), "SkyrimVR Devkit", "Mute")
 }
 
 
