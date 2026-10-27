@@ -4,6 +4,12 @@
 DllCall("winmm\timeBeginPeriod", "UInt", 1)
 OnExit((*) => DllCall("winmm\timeEndPeriod", "UInt", 1))
 
+; Keep the frontend's taskbar group separate from other AutoHotkey scripts.
+DllCall("shell32\SetCurrentProcessExplicitAppUserModelID", "WStr", "SkyrimVR.Devkit", "Int")
+
+; Set the application icon before creating windows.
+try SetFrontendIcon(A_ScriptDir "\icons\MM-OFF.png")
+
 TurnSpeed  := 216.0
 TurnSensitivity := 1.0
 LookTickMs := 16.66
@@ -2119,6 +2125,8 @@ InitTrayControls() {
     A_TrayMenu.Add("Setup Checklist...", ShowSetupChecklist)
     A_TrayMenu.Add("How To", ShowHowTo)
     A_TrayMenu.Add("Settings...", OpenSettings)
+    A_TrayMenu.Add("Enable Null Driver in SteamVR", ToggleDriverFromTray)
+    A_TrayMenu.Add()
     A_TrayMenu.Add("Quick Commands...", ShowQuickCommands)
     A_TrayMenu.Add("Send Console Command...", ShowConsoleDialog)
     A_TrayMenu.Add()
@@ -2129,9 +2137,13 @@ InitTrayControls() {
 
 UpdateTrayControls() {
     global TrayControlsInitialized, TrayMovementItemLabel, TrayMovementIconAttemptedState
-    global MovementModeRequested
+    global MovementModeRequested, Active
     if !TrayControlsInitialized
         return
+    if Active = "Modded"
+        A_TrayMenu.Check("Enable Null Driver in SteamVR")
+    else
+        A_TrayMenu.Uncheck("Enable Null Driver in SteamVR")
 
     label := "Movement Mode (" MovementToggleHotkeyDisplay() ")"
     if TrayMovementItemLabel = "" {
@@ -2148,12 +2160,35 @@ UpdateTrayControls() {
     state := MovementModeRequested ? "ON" : "OFF"
     if TrayMovementIconAttemptedState != state {
         iconPath := A_ScriptDir "\icons\MM-" state ".png"
-        try TraySetIcon(iconPath, , true)
+        try SetFrontendIcon(iconPath)
         catch as e {
-            TraySetIcon("*", , true)
+            SetFrontendIcon(A_IsCompiled ? A_ScriptFullPath : A_AhkPath)
             LogError("UpdateTrayControls: couldn't load " iconPath ": " e.Message)
         }
         TrayMovementIconAttemptedState := state
+    }
+}
+
+SetFrontendIcon(path) {
+    static icons := Map() ; Process-lifetime handles shared by the tray and frontend windows.
+    if !icons.Has(path) {
+        icon := LoadPicture(path, "Icon1", &imageType)
+        if !icon
+            throw Error("Couldn't load application icon: " path)
+        icons[path] := icon
+    }
+    icon := icons[path]
+    TraySetIcon("HICON:*" icon, , true)
+    previous := DetectHiddenWindows(true)
+    try {
+        for hwnd in WinGetList("ahk_pid " DllCall("GetCurrentProcessId")) {
+            if GuiFromHwnd(hwnd) {
+                DllCall("SendMessageW", "Ptr", hwnd, "UInt", 0x80, "Ptr", 0, "Ptr", icon, "Ptr")
+                DllCall("SendMessageW", "Ptr", hwnd, "UInt", 0x80, "Ptr", 1, "Ptr", icon, "Ptr")
+            }
+        }
+    } finally {
+        DetectHiddenWindows(previous)
     }
 }
 
@@ -2882,6 +2917,14 @@ UpdateStatus(*) {
 
     StatusText.Text := (Active = "Modded") ? "Null driver" : "Original settings"
     ChkDriverEnabled.Value := (Active = "Modded") ? 1 : 0
+    UpdateTrayControls()
+}
+
+ToggleDriverFromTray(*) {
+    global ChkDriverEnabled
+    UpdateStatus()
+    ChkDriverEnabled.Value := !ChkDriverEnabled.Value
+    ToggleDriverEnabled(ChkDriverEnabled)
 }
 
 ToggleDriverEnabled(ctrl, *) {

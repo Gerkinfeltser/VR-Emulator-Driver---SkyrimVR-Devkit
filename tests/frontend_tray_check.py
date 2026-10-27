@@ -8,6 +8,7 @@ import ctypes
 from ctypes import wintypes
 from pathlib import Path
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -17,7 +18,9 @@ CHECK = r'''
 #Requires AutoHotkey v2.0
 try {
     CheckShortcuts()
-    FileAppend("PASS shortcut replacement, conflicts, and persistence failures`n", "*")
+    CheckDriverToggle()
+    CheckWindowIcons()
+    FileAppend("PASS shortcut conflicts/persistence, Null Driver backup guards, and dynamic window icons`n", "*")
     ExitApp(0)
 } catch as e {
     FileAppend(e.Message " at line " e.Line "`n", "**")
@@ -104,6 +107,117 @@ CheckShortcuts() {
     }
 }
 
+CheckDriverToggle() {
+    global MainGui := Gui(), Active := "Original", NullDriverKey := "driver_null"
+    global StatusText := MainGui.AddText(), ChkDriverEnabled := MainGui.AddCheckbox()
+    global LivePath := A_ScriptDir "\steamvr.vrsettings"
+    global StagingFile := A_ScriptDir "\steamvr.backup", ConfigFile := A_ScriptDir "\driver-state.ini"
+    global MovementModeRequested := false, TrayControlsInitialized := false
+    global TrayMovementItemLabel := "", TrayMovementIconAttemptedState := "OFF"
+    original := '{"driver_null":{"enable":false},"steamvr":{"supersampleScale":1.3}}'
+    WriteFileUtf8(LivePath, original)
+    ChkDriverEnabled.OnEvent("Click", ToggleDriverEnabled)
+    InitTrayControls()
+    id := TrayItemId("Enable Null Driver in SteamVR")
+    DetectHiddenWindows(true)
+    PostMessage(0x111, id, 0,, "ahk_id " A_ScriptHwnd)
+    Sleep(50)
+    Check(ReadNullDriverEnabled(FileRead(LivePath)), "Tray enable did not update configuration")
+    Check(FileRead(StagingFile) = original, "Enabling lost the original configuration backup")
+    Check(ChkDriverEnabled.Value && TrayItemChecked(id), "Enable left checkbox/tray out of sync")
+    Check(IniRead(ConfigFile, "State", "Active") = "Modded", "Enabled state was not saved")
+    SendMessage(0xF5, 0, 0, ChkDriverEnabled)
+    Sleep(-1) ; Dispatch the checkbox's queued AHK Click callback before checking the file.
+    Check(FileRead(LivePath) = original, "Checkbox disable did not restore the flag while preserving settings")
+    Check(!TrayItemChecked(id), "Checkbox disable left the tray checked")
+
+    ; The config may change outside this frontend; toggle its current value, not a stale checkbox.
+    WriteFileUtf8(LivePath, SetNullDriverEnabled(original, true))
+    ToggleDriverFromTray()
+    Check(FileRead(LivePath) = original, "Tray toggled stale checkbox state instead of current config")
+
+    ToggleDriverFromTray()
+    FileDelete(StagingFile)
+    enabled := FileRead(LivePath)
+    ToggleDriverFromTray()
+    Check(FileRead(LivePath) = enabled, "Missing-backup guard allowed disabling")
+    Check(ChkDriverEnabled.Value && TrayItemChecked(id), "Rejected disable changed checked state")
+    FileDelete(LivePath)
+    Active := "Original"
+    ToggleDriverFromTray()
+    Check(!FileExist(LivePath), "Missing-file failure created a SteamVR config")
+    Check(!ChkDriverEnabled.Value && !TrayItemChecked(id), "Failed enable left checked state")
+    MainGui.Destroy()
+}
+
+CheckWindowIcons() {
+    global MainGui := Gui(), MovementModeRequested, TrayMovementIconAttemptedState := ""
+    hidden := Gui()
+    MainGui.Show("NA w200 h80")
+    DetectHiddenWindows(false)
+    offImages := Map()
+    for state in ["OFF", "ON", "OFF"] {
+        MovementModeRequested := state = "ON"
+        UpdateTrayControls()
+        Check(!A_DetectHiddenWindows, "Icon refresh changed hidden-window detection")
+        created := Gui()
+        for window in [MainGui, hidden, created] {
+            for size in [0, 1] {
+                key := (window.Hwnd = created.Hwnd ? "new" : window.Hwnd) ":" size
+                image := WindowIconImage(window, size)
+                if !offImages.Has(key)
+                    offImages[key] := image
+                else
+                    Check(state = "ON" ? image != offImages[key] : image = offImages[key],
+                        "Window icon did not follow OFF/ON/OFF: " key)
+            }
+        }
+        created.Destroy()
+    }
+    hidden.Destroy()
+    Check(WindowIconImage(MainGui, 1) = offImages[MainGui.Hwnd ":1"],
+        "Closing another window invalidated the shared icon")
+    MainGui.Destroy()
+}
+
+WindowIconImage(window, size) {
+    icon := DllCall("SendMessageW", "Ptr", window.Hwnd, "UInt", 0x7F, "Ptr", size, "Ptr", 0, "Ptr")
+    dc := DllCall("CreateCompatibleDC", "Ptr", 0, "Ptr")
+    header := Buffer(40, 0)
+    NumPut("UInt", 40, "Int", 32, "Int", -32, "UShort", 1, "UShort", 32, header)
+    bits := 0
+    bitmap := DllCall("CreateDIBSection", "Ptr", dc, "Ptr", header, "UInt", 0,
+        "Ptr*", &bits, "Ptr", 0, "UInt", 0, "Ptr")
+    Check(bitmap && bits, "Could not allocate icon rendering bitmap")
+    previous := DllCall("SelectObject", "Ptr", dc, "Ptr", bitmap, "Ptr")
+    try {
+        DllCall("PatBlt", "Ptr", dc, "Int", 0, "Int", 0, "Int", 32, "Int", 32, "UInt", 0x42)
+        Check(DllCall("DrawIconEx", "Ptr", dc, "Int", 0, "Int", 0, "Ptr", icon,
+            "Int", 32, "Int", 32, "UInt", 0, "Ptr", 0, "UInt", 3), "Invalid window icon")
+        DllCall("GdiFlush")
+        return DllCall("ntdll\RtlComputeCrc32", "UInt", 0, "Ptr", bits, "UInt", 4096, "UInt")
+    } finally {
+        DllCall("SelectObject", "Ptr", dc, "Ptr", previous)
+        DllCall("DeleteObject", "Ptr", bitmap)
+        DllCall("DeleteDC", "Ptr", dc)
+    }
+}
+
+TrayItemId(label) {
+    Loop DllCall("GetMenuItemCount", "Ptr", A_TrayMenu.Handle, "Int") {
+        text := Buffer(512)
+        DllCall("GetMenuStringW", "Ptr", A_TrayMenu.Handle, "UInt", A_Index - 1,
+            "Ptr", text, "Int", 256, "UInt", 0x400)
+        if StrGet(text) = label
+            return DllCall("GetMenuItemID", "Ptr", A_TrayMenu.Handle, "Int", A_Index - 1, "UInt")
+    }
+    throw Error("Tray item missing: " label)
+}
+
+TrayItemChecked(id) {
+    return DllCall("GetMenuState", "Ptr", A_TrayMenu.Handle, "UInt", id, "UInt", 0, "UInt") & 8
+}
+
 Reject(value, reason) {
     try SetMovementToggleHotkey(value)
     catch as e {
@@ -148,6 +262,9 @@ def main():
         if not desktop:
             raise ctypes.WinError(ctypes.get_last_error())
         try:
+            (Path(temp) / "icons").mkdir()
+            for icon in ("MM-OFF.png", "MM-ON.png"):
+                shutil.copyfile(frontend.parent / "icons" / icon, Path(temp) / "icons" / icon)
             script = Path(temp) / "check.ahk"
             script.write_text(CHECK.replace("FRONTEND_PATH", str(frontend)), encoding="utf-8")
             startup = subprocess.STARTUPINFO()

@@ -94,8 +94,14 @@ CONTROLS
   Reserved/gameplay keys and Windows-registered conflicts are rejected without replacing the old shortcut.
 - Closing the main window hides it; the frontend keeps running in the tray. Right-click for its actions,
   double-click/Open to restore the window, or choose Quit at the bottom to exit.
+  Enable Null Driver in SteamVR (below Settings) mirrors the main checkbox and retains its
+  backup safeguards. Restart SteamVR after changing it; its checkmark reports the configured
+  setting, not whether the driver is currently loaded.
   Movement Mode is checked when enabled. MM-ON/OFF icons show that requested state, not temporary
   focus/console pauses; the main window's Live line still reports whether input is active.
+  Window/title-bar and taskbar icons also switch with requested Movement Mode, including hidden
+  frontend windows. Newly opened windows inherit the current ON/OFF artwork.
+  The frontend uses its own taskbar group, separate from other AutoHotkey scripts. No EXE is needed.
   Settings > General > Enable MM Notification is off by default and persists across restarts.
   When enabled, each toggle requests a silent, temporary Windows ON/OFF tray notification.
   Windows controls its duration and may suppress it through notification or Do Not Disturb settings.
