@@ -72,6 +72,20 @@ The headset pose and button bindings are unchanged. Controllers follow the camer
 
 An intermittent keyboard-hook tracking failure can leave **Live: ACTIVE** with a healthy heartbeat but no arrow/R response. Enabling Movement Mode now reinstalls the hook once; toggle Movement Mode off and on to request recovery. Manual forced-hook recovery was verified in-game; the automatic enable path has only been checked offline. This does not establish why hook tracking failed or fix the E-triggered crash.
 
+### Manual installation of this fork
+
+The root `null driver.zip` contains the current fork's Release x64 driver, matching SHA-256, input profile, settings, version marker and licenses. It is a manual-install checkpoint, not the complete all-controller-buttons implementation.
+
+1. Get `null driver.zip` and the whole `frontend/` folder from the same fork branch/revision. Install AutoHotkey v2; keep the frontend's `icons/` folder and license alongside the script.
+2. Locate SteamVR's installation folder (Steam > SteamVR > Properties > Installed Files > Browse), then close Steam and SteamVR.
+3. Move the existing `SteamVR/drivers/null` folder to a backup **outside `drivers/`**. Extract the ZIP's `null` folder into `SteamVR/drivers/`. The DLL must end up at `SteamVR/drivers/null/bin/win64/driver_null.dll`; keep its adjacent `.sha256` and the packaged `resources/input/mycontroller_profile.json`.
+4. Run `frontend/SkyrimVR Devkit.ahk`, then enable **Enable Null Driver in SteamVR**. Start SteamVR and SkyrimVR through SteamVR, not OpenComposite, and use Movement Mode in the game.
+5. **Do not use Download/Install, Download/Update or Repair**, including the first-run checklist's download step: those still fetch upstream and can overwrite this fork.
+
+The frontend is not inside the driver ZIP. Personal settings, bindings, saves and Skyrim mods are not bundled. To roll back, close Steam/SteamVR and replace `drivers/null` with the backed-up folder.
+
+Package verification is offline: Release x64 build, input/pose regression check, extracted-DLL loading/factory checks, and checksum/resource consistency. Live SteamVR/SkyrimVR verification of this rebuilt package remains owner-run.
+
 ### Limitations
 
 There's only one real limitation right now. Because of how SkyrimVR's console actually processes input, sending a command still needs the in-game console to be open for a moment while it happens, but it's fast enough that it isn't too disruptive. The Devkit also entirely locks down the keyboard while a command is being sent to prevent any issues.

@@ -13,9 +13,13 @@ You can open the .ahk file in any text editor to make modifications easily.
 
 FIRST TIME SETUP:
 
-The devkit opens a Setup Checklist by itself the first time. It walks you through everything, including
-downloading the null driver (the "Download / Install" button, also under Settings). This version needs the
-v2.0.1 null driver, so if you used an older devkit, update the driver there too (the devkit tells you).
+FORK CHECKPOINT: manually install this branch's root "null driver.zip" using the repository README's
+"Manual installation of this fork" section. The frontend and icons are separate from the driver ZIP.
+After installing, use "Enable Null Driver in SteamVR" to enable the driver.
+
+DO NOT use Download/Install, Download/Update or Repair, including the first-run checklist's download
+step: those still fetch upstream and can overwrite this fork. The older download instructions in
+the in-app How To and release notes below are not the fork installation procedure.
 
 ============================================================
 WHAT'S NEW IN v2.0.1 (since v2.0)
