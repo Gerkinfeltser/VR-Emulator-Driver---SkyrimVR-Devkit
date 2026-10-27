@@ -49,6 +49,29 @@ It's basically how you communicate with the driver without a headset or controll
 
 The look and interact keys are *held* keys, and Windows never releases a key that a program pressed if that program dies. So the Devkit also flips a "heartbeat" ghost key about every 100 ms, and the driver ignores held keys if the heartbeat stops. Close or crash the Devkit and the camera just stops. Mouse look works the same way: it switches itself off and gives your cursor back if the heartbeat stops, if SkyrimVR loses focus, or if the driver unloads, so it can't trap your mouse.
 
+### Controller-input checkpoint (unreleased)
+
+Run `frontend/SkyrimVR Devkit.ahk` with the matching fork-built DLL and `resources/input/mycontroller_profile.json` installed under the null driver's `resources/input/`. Settings > Keybinds exposes Right Grip (G), L Pad Click and L Pad Touch (both initially unbound). Bindings persist; Backspace clears a controller bind. Existing conflicting binds are preserved.
+
+These buttons share a four-byte mapping, not F24. Bound keys are swallowed only while Movement Mode is active; pausing and the existing F23 timeout release the inputs. Left click and touch are independent: to test both, hold the touch key while pressing the click key. Status reports `controller_buttons_mapping_valid`, `right_grip*`, `left_trackpad_click*`, `left_trackpad_touch*`, and `left_trackpad_ever_seen`; these are separate from ghost-key history.
+
+This is a limited checkpoint, not the complete all-controller-buttons implementation. **Do not use Download/Update or Repair with a fork-built driver:** the updater still targets upstream and can replace it.
+
+### Controller poses (unreleased)
+
+With the matching fork-built DLL, **Settings > Controller Poses** edits each controller's XYZ position and pitch/yaw/roll independently. Positions are metres relative to the headset: +X right, +Y up, +Z backwards. Angles are right-handed degrees, composed as headset rotation × yaw(Y) × pitch(X) × roll(Z). The position offset follows the headset's rotation, not the controller's extra angle offset.
+
+| Controller | Local XYZ position (m) | Pitch / yaw / roll (degrees) |
+| --- | --- | --- |
+| Left | -0.10, -0.20, -0.45 | 45 / 0 / -15 |
+| Right | +0.10, -0.20, -0.45 | 45 / 0 / +15 |
+
+These calibrated defaults remain adjustable, not universal ideal SkyrimVR poses. Existing saved settings are preserved. Decimal positions accept -2 to +2 metres per axis; angles accept -180 to +180 degrees. Values publish to millimetre/0.1-degree precision through `Actions/controls.txt`. **Reset Both Controllers to Defaults** restores the table above.
+
+The headset pose and button bindings are unchanged. Controllers follow the camera rather than providing independent tracking or fixed world positions; visible in-game hands are not guaranteed. Arrow look and R door interaction have been verified, but console-state inversion and an E-triggered crash remain unresolved. If look/interact stop after using the console, close it and toggle Movement Mode off and back on. This is a workaround, not a console-state fix.
+
+An intermittent keyboard-hook tracking failure can leave **Live: ACTIVE** with a healthy heartbeat but no arrow/R response. Enabling Movement Mode now reinstalls the hook once; toggle Movement Mode off and on to request recovery. Manual forced-hook recovery was verified in-game; the automatic enable path has only been checked offline. This does not establish why hook tracking failed or fix the E-triggered crash.
+
 ### Limitations
 
 There's only one real limitation right now. Because of how SkyrimVR's console actually processes input, sending a command still needs the in-game console to be open for a moment while it happens, but it's fast enough that it isn't too disruptive. The Devkit also entirely locks down the keyboard while a command is being sent to prevent any issues.

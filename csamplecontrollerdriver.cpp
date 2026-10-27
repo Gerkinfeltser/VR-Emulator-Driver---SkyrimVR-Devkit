@@ -74,7 +74,7 @@ vr::EVRInitError CSampleControllerDriver::Activate(vr::TrackedDeviceIndex_t unOb
     // this file tells the UI what to show the user for binding this controller as well as what default bindings should
     // be for legacy or other apps
 
-    // Entirely pointless for this project as SkyrimVR understands OpenVR/SteamVR. Hence why the .json file is missing from the .zip file
+    // The profile is shipped under the null driver's resources/input directory.
     vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, Prop_InputProfilePath_String, "{null}/input/mycontroller_profile.json");
 
     //  Buttons handles
@@ -151,17 +151,15 @@ vr::DriverPose_t CSampleControllerDriver::GetPose()
     pose.qWorldFromDriverRotation = HmdQuaternion_Init(1, 0, 0, 0);
     pose.qDriverFromHeadRotation = HmdQuaternion_Init(1, 0, 0, 0);
 
-    // The pose is computed once per frame in DevkitInput::Update() and shared by the headset and both
-    // controllers (everything turns and moves together, as it did when the frontend wrote the same
-    // line to every device file). This is just a read.
-    const DevkitInput::Pose p = DevkitInput::Snapshot();
-    pose.qRotation.w = p.ow;
-    pose.qRotation.x = p.ox;
-    pose.qRotation.y = p.oy;
-    pose.qRotation.z = p.oz;
-    pose.vecPosition[0] = p.px;
-    pose.vecPosition[1] = p.py;
-    pose.vecPosition[2] = p.pz;
+    // Follow the shared headset pose with this hand's calibrated local offset and rotation.
+    const DevkitInput::Pose controller = DevkitInput::ControllerSnapshot(ControllerIndex != 1);
+    pose.qRotation.w = controller.ow;
+    pose.qRotation.x = controller.ox;
+    pose.qRotation.y = controller.oy;
+    pose.qRotation.z = controller.oz;
+    pose.vecPosition[0] = controller.px;
+    pose.vecPosition[1] = controller.py;
+    pose.vecPosition[2] = controller.pz;
 
     return pose;
 }
@@ -184,8 +182,10 @@ void CSampleControllerDriver::RunFrame()
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[9], false, 0);  // X
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[10], false, 0); // Y
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[11], false, 0); // Trigger Click
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[12], false, 0); // Trackpad Click
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[13], false, 0); // Trackpad Touch
+        bool trackpadTouch = false, trackpadClick = false;
+        DevkitInput::GetLeftTrackpad(trackpadTouch, trackpadClick);
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[12], trackpadClick, 0); // Trackpad Click
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[13], trackpadTouch, 0); // Trackpad Touch
 
         vr::VRDriverInput()->UpdateScalarComponent(HAnalog[0], 0.0, 0); //Trackpad x
         vr::VRDriverInput()->UpdateScalarComponent(HAnalog[1], 0.0, 0); //Trackpad y
@@ -196,7 +196,7 @@ void CSampleControllerDriver::RunFrame()
         //Controller2
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[0], (0x8000 & GetAsyncKeyState(VK_F13)) != 0, 0);  // System
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[1], false, 0);  // Application Menu
-        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[2], false, 0);  // Grip
+        vr::VRDriverInput()->UpdateBooleanComponent(HButtons[2], DevkitInput::GetRightGrip(), 0);  // Grip
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[3], false, 0);  // D-pad Left
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[4], false, 0);  // D-pad Up
         vr::VRDriverInput()->UpdateBooleanComponent(HButtons[5], false, 0);  // D-pad Right

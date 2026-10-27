@@ -79,21 +79,36 @@ A NEW LAYOUT
 
 - The main window is simpler: Launch SteamVR, Setup Checklist, How To, Settings, and a single
   "Enable Null Driver in SteamVR" checkbox that replaces the Load / Unload Null Driver buttons.
-- Settings has four tabs: General (Steam folder, download / update the driver, edit quick commands, copy
-  diagnostics, update check), Controls, Keybinds and Display.
+- Settings has General (Steam folder, download / update the driver, edit quick commands, copy diagnostics,
+  update check), Controls, Keybinds, Display, and the unreleased fork's Controller Poses tab.
 - Your settings are now saved. In v1.0.5 the turn sensitivity went back to 1.0 every time you opened the devkit.
 
 CONTROLS
 
 - Settings > Keybinds: rebind the look keys, interact and the menu keys (Q / E), for keyboards without
   arrow keys.
+- Unreleased fork checkpoint: Right Grip defaults to G in Settings > Keybinds; Backspace clears it.
+  The binding persists, is swallowed only in active Movement Mode, and releases on pause or heartbeat loss.
+  An existing G bind wins and leaves Right Grip unbound. Use the matching fork DLL and input profile.
+  SteamVR/SkyrimVR verification is owner-run. Do not use Download/Update or Repair: those still use upstream.
 - Settings > Controls: turn sensitivity, base turn speed, console command delay (raise it if commands fail on
   a slow system), auto console view, and the mouse look settings. Changes apply live, with no SteamVR restart.
+- Unreleased fork: Settings > Controller Poses gives each hand independent headset-relative XYZ offsets
+  in metres (+X right, +Y up, +Z backwards), and pitch/yaw/roll in right-handed degrees. Orientation is
+  headset * yaw(Y) * pitch(X) * roll(Z); offsets move with the headset, not the extra controller angles.
+  Owner-calibrated defaults: left X -0.10m, right X +0.10m; both Y -0.20m, Z -0.45m and pitch45deg;
+  yaw0deg; left roll-15deg, right roll+15deg. Saved custom settings are preserved.
+  Decimal positions support +/-2m, angles +/-180 degrees; publication precision is 1mm / 0.1 degree.
+  Values persist with existing settings, refresh live with the matching DLL, and Reset restores both hands.
+  This is not independent hand tracking. Source/build/offline checks do not prove SkyrimVR interaction;
+  installation and hand/aim/interaction checks remain owner-run. Arrow/Esc navigation is not changed.
 - The "hold Left Alt" camera movement (Alt + WASD / Q / E) is gone. It was the buggy part, and moving the camera
   directly tends to mess things up. Use the console view buttons below instead.
-- Q / E menu navigation and sprint no longer drop or stick keys, and E still can't crash the game while
-  Movement Mode is on, even while sprinting.
-- Movement Mode pauses by itself while SkyrimVR's own console is open, so you can type in it.
+- Q / E menu navigation and sprint use the existing remaps. An E-triggered crash remains unresolved.
+- Movement Mode uses a console-open flag to pause input for typing. If look/interact stop after using
+  the console, close it and toggle Movement Mode off and back on; console-state inversion is not fixed.
+- Enabling Movement Mode reinstalls the keyboard hook once, recovering lost physical-key tracking.
+  It does not repeatedly refresh the hook while active or establish a fix for the E-triggered crash.
 
 CONSOLE VIEW
 
