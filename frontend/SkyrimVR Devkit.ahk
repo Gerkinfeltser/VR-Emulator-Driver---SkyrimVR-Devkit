@@ -69,6 +69,13 @@ for key, value in ControllerPoseDefaults
 ControllerPoseLimits := Map("x", 2.0, "y", 2.0, "z", 2.0,
                             "pitch", 180.0, "yaw", 180.0, "roll", 180.0)
 MovementModeRequested := false
+MovementToggleHotkey := ""
+MovementToggleHotkeyDefault := "^+m"
+MovementToggleHeld := false
+MovementToggleEdit := ""
+TrayControlsInitialized := false
+TrayMovementItemLabel := ""
+TrayMovementIconAttemptedState := ""
 
 
 ReadControllerPose(value, limit, &parsed) {
@@ -446,7 +453,7 @@ MainGui.MarginX := 15
 MainGui.MarginY := 15
 ApplyDarkTitlebar(MainGui)
 
-MainGui.AddButton("w420", "Launch SteamVR").OnEvent("Click", (*) => Run("steam://rungameid/250820"))
+MainGui.AddButton("w420", "Launch SteamVR").OnEvent("Click", LaunchSteamVR)
 
 MainGui.AddButton("w420 y+8", "Setup Checklist...").OnEvent("Click", ShowSetupChecklist)
 
@@ -708,6 +715,7 @@ SettingsGui := ""
 OpenSettings(*) {
     global SettingsGui, DarkBGStr, DarkFGStr, DarkCtrlBG, InputFGStr
     global SteamDir, LivePath, TurnSensitivity, TurnSpeed, ConsoleMS, AutoConsoleView
+    global MovementToggleHotkey, MovementToggleEdit
     global MouseLookEnabled, MouseSensitivity, MouseInvertY, MouseSensLabel
     global SteamEdit, LiveEdit, BtnDownload, SensLabel, SensSlider, BootstrapFile
     global ControllerPoses, ControllerPoseDefaults, ControllerPoseLabels, ControllerPoseEdits
@@ -801,6 +809,10 @@ OpenSettings(*) {
         KeybindButtons[action] := btn
         y += 36
     }
+    SettingsGui.AddText("x35 y220 w200", "Movement Mode toggle")
+    MovementToggleEdit := SettingsGui.AddHotkey("x35 y+4 w130", MovementToggleHotkey)
+    SettingsGui.AddButton("x170 yp-1 w65", "Apply").OnEvent("Click", ApplyMovementToggleHotkey)
+    SettingsGui.AddText("x35 y+4 w200 cSilver", "Ctrl/Alt/Shift + key")
     resetY := 146 + Max(MenuActions.Length, ControlActions.Length) * 36
     SettingsGui.AddButton("x35 y" resetY " w400", "Reset All to Defaults").OnEvent("Click", (*) => ResetKeyBindsToDefaults(KeybindButtons))
     SettingsTabs.UseTab(4)
@@ -1231,6 +1243,11 @@ RebindMovementKey(action, ctrl, *) {
             ctrl.Text := original
             return
         }
+        if newSc != "" && newSc = MovementToggleBaseSC() {
+            MsgBox("That key is the base key of the Movement Mode shortcut. Change that shortcut first.", "Key Already Bound", "IconX")
+            ctrl.Text := original
+            return
+        }
 
         for otherAction in AllBindActions {
             if newSc != "" && otherAction != action && MovementKeyBinds[otherAction] = newSc {
@@ -1261,11 +1278,162 @@ ResetKeyBindsToDefaults(KeybindButtons) {
     oldBinds := MovementKeyBinds.Clone()
     for action in AllBindActions
         MovementKeyBinds[action] := MovementKeyDefaults[action]
+    ; Reset the shortcut against the proposed defaults before enabling any conflicting gameplay key.
+    try ResetMovementToggleHotkey()
+    catch as e {
+        MovementKeyBinds := oldBinds
+        MsgBox(e.Message, "Movement Mode Shortcut", "IconX")
+        return
+    }
     RegisterMovementHotkeys(oldBinds)
     for action in AllBindActions {
         SaveKeyBind(action, MovementKeyBinds[action] = "" ? "none" : MovementKeyBinds[action])
         KeybindButtons[action].Text := KeyBindDisplay(MovementKeyBinds[action])
     }
+}
+
+MovementToggleContext(*) {
+    global MovementToggleHotkey, MovementToggleEdit, MovementToggleHeld
+    try {
+        if IsObject(MovementToggleEdit) && MovementToggleEdit.Focused
+            return false
+    }
+    if MovementToggleHeld
+        return true
+    ; Sprint remaps Shift to synthetic Alt; match physical modifiers, not that logical state.
+    return MovementToggleHotkey != "" && !GetKeyState("LWin", "P") && !GetKeyState("RWin", "P")
+        && (!!GetKeyState("Ctrl", "P") = !!InStr(MovementToggleHotkey, "^"))
+        && (!!GetKeyState("Alt", "P") = !!InStr(MovementToggleHotkey, "!"))
+        && (!!GetKeyState("Shift", "P") = !!InStr(MovementToggleHotkey, "+"))
+}
+
+ToggleMovementModeFromHotkey(*) {
+    global MovementToggleHeld
+    if MovementToggleHeld
+        return
+    MovementToggleHeld := true
+    ToggleMovementMode()
+}
+
+ReleaseMovementToggle(*) {
+    global MovementToggleHeld
+    MovementToggleHeld := false
+}
+
+MovementToggleBaseKeyName() {
+    global MovementToggleHotkey
+    return RegExReplace(MovementToggleHotkey, "^[!+^]+")
+}
+
+ParseMovementToggleHotkey(value, &combo, &baseSC) {
+    combo := ""
+    baseSC := ""
+    if !RegExMatch(value, "^([!+^]+)([^!+^].*)$", &m)
+        return false
+    mods := m[1], key := GetKeyName(m[2])
+    if StrLen(mods) != (InStr(mods, "^") > 0) + (InStr(mods, "!") > 0) + (InStr(mods, "+") > 0)
+        return false
+    vk := GetKeyVK(key)
+    baseSC := Format("sc{:03X}", GetKeySC(key))
+    if !vk || baseSC = "sc000" || (vk >= 0x7C && vk <= 0x87)
+        || RegExMatch(key, "i)^(?:(?:L|R)?(?:Control|Ctrl|Shift|Alt|Win))$")
+        || baseSC = "sc029" || baseSC = "sc04C" || baseSC = "sc048" || baseSC = "sc012"
+        return false
+    combo := (InStr(mods, "^") ? "^" : "") (InStr(mods, "!") ? "!" : "") (InStr(mods, "+") ? "+" : "") key
+    return true
+}
+
+MovementToggleHotkeyDisplay() {
+    global MovementToggleHotkey
+    if MovementToggleHotkey = ""
+        return "Unavailable"
+    label := ""
+    if InStr(MovementToggleHotkey, "^")
+        label .= "Ctrl+"
+    if InStr(MovementToggleHotkey, "!")
+        label .= "Alt+"
+    if InStr(MovementToggleHotkey, "+")
+        label .= "Shift+"
+    return label StrUpper(MovementToggleBaseKeyName())
+}
+
+MovementToggleBaseSC(combo := "") {
+    global MovementToggleHotkey
+    combo := combo != "" ? combo : MovementToggleHotkey
+    return ParseMovementToggleHotkey(combo, &canonical, &baseSC) ? baseSC : ""
+}
+
+RegisterMovementToggle(combo, enable) {
+    sc := MovementToggleBaseSC(combo)
+    options := enable ? "On T1 B0" : "Off"
+    ; Scan-code key-up follows the same physical key even when NumLock changes its virtual key.
+    HotIf()
+    Hotkey("~*" sc " Up", ReleaseMovementToggle, options)
+    HotIf(MovementToggleContext)
+    try Hotkey("*" sc, ToggleMovementModeFromHotkey, options)
+    catch {
+        HotIf()
+        Hotkey("~*" sc " Up", , enable ? "Off" : "On")
+        throw
+    } finally HotIf()
+}
+
+SetMovementToggleHotkey(value, persist := true) {
+    global MovementToggleHotkey, MovementToggleHeld, AllBindActions, MovementKeyBinds, MovementKeyLabels, BootstrapFile
+    if !ParseMovementToggleHotkey(value, &combo, &baseSC)
+        throw ValueError("Choose Ctrl, Alt, and/or Shift plus a key. Console, sprint/Alt, F13-F24 and Numpad 5/8 are reserved.")
+    for action in AllBindActions
+        if MovementKeyBinds[action] = baseSC
+            throw ValueError("That key is already used by " MovementKeyLabels[action] ". Rebind that action first.")
+    oldCombo := MovementToggleHotkey
+    sameBase := baseSC = MovementToggleBaseSC()
+    if combo != oldCombo {
+        ; Hotkey() otherwise silently falls back to a hook when Windows rejects a conflict.
+        mods := (InStr(combo, "!") ? 1 : 0) | (InStr(combo, "^") ? 2 : 0) | (InStr(combo, "+") ? 4 : 0)
+        if !DllCall("RegisterHotKey", "Ptr", A_ScriptHwnd, "Int", 0x7FFF, "UInt", mods, "UInt", GetKeyVK(RegExReplace(combo, "^[!+^]+")))
+            throw Error("Windows could not register that shortcut. The existing shortcut remains active.")
+        DllCall("UnregisterHotKey", "Ptr", A_ScriptHwnd, "Int", 0x7FFF)
+        if !sameBase
+            RegisterMovementToggle(combo, true)
+    }
+    try {
+        if persist
+            IniWrite(combo, BootstrapFile, "KeyBinds", "MovementModeToggle")
+    } catch as e {
+        if !sameBase
+            RegisterMovementToggle(combo, false)
+        throw Error("The shortcut could not be saved. The existing shortcut remains active.", , e.Message)
+    }
+    if oldCombo != "" && !sameBase
+        RegisterMovementToggle(oldCombo, false)
+    MovementToggleHotkey := combo
+    if !sameBase
+        MovementToggleHeld := false
+    UpdateTrayControls()
+}
+
+LoadMovementToggleHotkey() {
+    global MovementToggleHotkeyDefault, BootstrapFile
+    candidate := IniRead(BootstrapFile, "KeyBinds", "MovementModeToggle", MovementToggleHotkeyDefault)
+    try SetMovementToggleHotkey(candidate, false)
+    catch as e
+        LogError("LoadMovementToggleHotkey: " e.Message)
+}
+
+ApplyMovementToggleHotkey(*) {
+    global MovementToggleEdit, MovementToggleHotkey
+    try {
+        SetMovementToggleHotkey(MovementToggleEdit.Value)
+        MovementToggleEdit.Value := MovementToggleHotkey
+    } catch as e
+        MsgBox(e.Message, "Movement Mode Shortcut", "IconX")
+}
+
+ResetMovementToggleHotkey() {
+    global MovementToggleHotkeyDefault, MovementToggleEdit, MovementToggleHotkey
+    SetMovementToggleHotkey(MovementToggleHotkeyDefault)
+    if IsObject(MovementToggleEdit)
+        MovementToggleEdit.Value := MovementToggleHotkey
 }
 
 KeyBindDisplay(scancode) {
@@ -1567,7 +1735,7 @@ ShowConsoleDialog(*) {
     CmdEdit.Focus()
 }
 
-MainGui.OnEvent("Close", (*) => ExitApp())
+MainGui.OnEvent("Close", (*) => MainGui.Hide())
 MainGui.Show("w450")
 
 UpdateStatus()
@@ -1787,6 +1955,8 @@ RegisterMovementHotkeys(oldBinds := "") {
 
 LoadKeyBinds()
 RegisterMovementHotkeys()
+LoadMovementToggleHotkey()
+InitTrayControls()
 
 ;  KEY INTERCEPTION
 
@@ -1905,18 +2075,73 @@ WarnIfDriverProblem() {
 }
 
 ToggleMovementMode(*) {
-    global MovementModeRequested, BtnMovement, GameConsoleOpen
+    global MovementModeRequested, BtnMovement, GameConsoleOpen, MovementToggleHeld
     MovementModeRequested := !MovementModeRequested
     GameConsoleOpen := false
     if MovementModeRequested {
-        InstallKeybdHook(true, true)
+        ; A working shortcut already has the hook; reinstalling here would erase its held-key state.
+        InstallKeybdHook(true, !MovementToggleHeld)
         BtnMovement.Text := "Movement Mode: ON  (Specific keys intercepted.)"
         SetTimer(WarnIfDriverProblem, -1)
     } else {
         BtnMovement.Text := "Movement Mode: OFF  (Keys work normally.)"
         ReleaseGhostKeys()
     }
+    UpdateTrayControls()
 }
+
+
+InitTrayControls() {
+    global TrayControlsInitialized, MainGui
+    if TrayControlsInitialized
+        return
+    TrayControlsInitialized := true
+    A_TrayMenu.Delete("E&xit")
+    A_TrayMenu.Add("&Open", (*) => MainGui.Show())
+    A_TrayMenu.Default := "&Open"
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Launch SteamVR", LaunchSteamVR)
+    A_TrayMenu.Add("Setup Checklist...", ShowSetupChecklist)
+    A_TrayMenu.Add("How To", ShowHowTo)
+    A_TrayMenu.Add("Settings...", OpenSettings)
+    A_TrayMenu.Add("Quick Commands...", ShowQuickCommands)
+    A_TrayMenu.Add("Send Console Command...", ShowConsoleDialog)
+    A_TrayMenu.Add()
+    UpdateTrayControls()
+    A_TrayMenu.Add()
+    A_TrayMenu.Add("Quit", (*) => ExitApp())
+}
+
+UpdateTrayControls() {
+    global TrayControlsInitialized, TrayMovementItemLabel, TrayMovementIconAttemptedState
+    global MovementModeRequested
+    if !TrayControlsInitialized
+        return
+
+    label := "Movement Mode (" MovementToggleHotkeyDisplay() ")"
+    if TrayMovementItemLabel = "" {
+        A_TrayMenu.Add(label, ToggleMovementMode)
+    } else if TrayMovementItemLabel != label {
+        A_TrayMenu.Rename(TrayMovementItemLabel, label)
+    }
+    TrayMovementItemLabel := label
+    if MovementModeRequested
+        A_TrayMenu.Check(label)
+    else
+        A_TrayMenu.Uncheck(label)
+
+    state := MovementModeRequested ? "ON" : "OFF"
+    if TrayMovementIconAttemptedState != state {
+        iconPath := A_ScriptDir "\icons\MM-" state ".png"
+        try TraySetIcon(iconPath, , true)
+        catch as e {
+            TraySetIcon("*", , true)
+            LogError("UpdateTrayControls: couldn't load " iconPath ": " e.Message)
+        }
+        TrayMovementIconAttemptedState := state
+    }
+}
+
 
 
 CompareVersions(a, b) {

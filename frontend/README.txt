@@ -7,6 +7,7 @@ HOW TO RUN:
 1. Download and Install AutoHotKey v2.0 from https://www.autohotkey.com/
 
 2. Double click "SkyrimVR Devkit.ahk" to open the devkit.
+   Keep icons/MM-OFF.png and icons/MM-ON.png beside the script in its icons folder.
 
 You can open the .ahk file in any text editor to make modifications easily.
 
@@ -87,6 +88,14 @@ CONTROLS
 
 - Settings > Keybinds: rebind the look keys, interact and the menu keys (Q / E), for keyboards without
   arrow keys.
+- Ctrl+Shift+M toggles Movement Mode globally, including when it is off. Change it in
+  Settings > Keybinds > Movement Mode toggle: press a Ctrl/Alt/Shift combination, then Apply.
+  It persists with the other binds; Reset All to Defaults restores Ctrl+Shift+M.
+  Reserved/gameplay keys and Windows-registered conflicts are rejected without replacing the old shortcut.
+- Closing the main window hides it; the frontend keeps running in the tray. Right-click for its actions,
+  double-click/Open to restore the window, or choose Quit at the bottom to exit.
+  Movement Mode is checked when enabled. MM-ON/OFF icons show that requested state, not temporary
+  focus/console pauses; the main window's Live line still reports whether input is active.
 - Unreleased fork checkpoint: Right Grip defaults to G in Settings > Keybinds; Backspace clears it.
   The binding persists, is swallowed only in active Movement Mode, and releases on pause or heartbeat loss.
   An existing G bind wins and leaves Right Grip unbound. Use the matching fork DLL and input profile.
@@ -107,8 +116,9 @@ CONTROLS
 - Q / E menu navigation and sprint use the existing remaps. An E-triggered crash remains unresolved.
 - Movement Mode uses a console-open flag to pause input for typing. If look/interact stop after using
   the console, close it and toggle Movement Mode off and back on; console-state inversion is not fixed.
-- Enabling Movement Mode reinstalls the keyboard hook once, recovering lost physical-key tracking.
-  It does not repeatedly refresh the hook while active or establish a fix for the E-triggered crash.
+- Enabling Movement Mode from the window or tray reinstalls the keyboard hook once. The keyboard
+  shortcut already needs a working hook and preserves its physical held-key tracking instead.
+  There is no continuous hook recovery or established fix for the historical E-triggered crash.
 
 CONSOLE VIEW
 
@@ -145,6 +155,12 @@ SETUP, DRIVER AND UPDATES
 - Copy Diagnostics includes much more (driver and SteamVR folder details, keybinds, display and mouse look
   settings, recent errors) and replaces your Windows user name with USER before you paste it anywhere.
 - The consent text now mentions the simulated key presses and the mouse capture.
+
+OFFLINE FRONTEND CHECK:
+
+Run python tests/frontend_tray_check.py from the fork repository (Windows + AutoHotkey v2).
+It checks shortcut conflicts, save failures, reload and physical-modifier matching on a separate,
+non-input desktop with temporary settings. It never starts SteamVR or sends game input.
 
 ============================================================
 The SkyrimVR Devkit script ("SkyrimVR Devkit.ahk") is free software, licensed under the GNU General Public
