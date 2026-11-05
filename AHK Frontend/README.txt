@@ -22,18 +22,12 @@ CONTROLLER AND TRAY CONTROLS
 ============================================================
 
 These controls need a driver rebuilt from the matching source. The frontend alone cannot add
-controller inputs or poses to an older DLL. Driver version numbering is unchanged here.
+controller inputs to an older DLL. Driver version numbering is unchanged here.
 
 - Select defaults to G; Right Grip defaults to H. Left Pad Click and Left Pad Touch start unbound.
   Change them in Settings > Keybinds; Backspace clears a binding. Existing saved bindings win over
   conflicting defaults. The new controller buttons release when Movement Mode pauses or its heartbeat
   stops. They use a local shared-memory mapping, not extra simulated keyboard keys.
-- Settings > Controller Poses adjusts each hand's headset-relative XYZ offsets in metres (+X right,
-  +Y up, +Z backwards) and pitch/yaw/roll in right-handed degrees. Orientation is headset * yaw(Y) *
-  pitch(X) * roll(Z); offsets move with the headset, not the additional controller rotation.
-  Defaults: left/right X -0.10/+0.10m, Y -0.20m, Z -0.45m, pitch 45 degrees, yaw 0 degrees,
-  left/right roll -15/+15 degrees. Positions allow +/-2m, angles +/-180 degrees, saved at
-  1mm / 0.1 degree precision. Changes apply live; Reset restores both hands. This is not hand tracking.
 - Ctrl+Shift+M toggles Movement Mode globally, including while it is off. Change the combination in
   Settings > Keybinds > Movement Mode toggle, then Apply. Reset All restores Ctrl+Shift+M.
   Conflicts and save failures leave the previous shortcut active.
@@ -57,7 +51,7 @@ OFFLINE CHECKS (from the repository root):
   VR-session lock and driver-backup checks are skipped if SteamVR is running; close it to run them.
   It does not start SteamVR, send game input or write your settings.
 - Compile and run tests/grip_input_check.cpp with the Windows C++ toolchain and OpenVR headers.
-  Exercises shared-memory buttons, heartbeat safety and controller pose math without loading SteamVR.
+  Exercises shared-memory buttons and heartbeat safety without loading SteamVR.
 
 ============================================================
 WHAT'S NEW IN v2.0.2 (since v2.0.1)

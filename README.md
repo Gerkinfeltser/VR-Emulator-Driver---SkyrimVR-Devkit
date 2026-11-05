@@ -28,7 +28,6 @@ The modified null driver fixes that by turning the HMD and both controllers itse
 - Inventory, Opening the map, Journal, Settings, nearly every single vanilla keybind works, though they might be in odd spots. For example both Left Control and Left shift are crouch for some reason.
 - If you need to get a closer look at something, such as the console, open Quick Commands and press **Move to Console View**. It puts the camera at a spot where the console is readable. There's also an optional "Auto console view" setting that moves in and back for you when you open and close the console with `~`. (The old hold-Left-Alt free camera is gone, moving the camera directly tends to screw things up.)
 - **Controller buttons:** Select defaults to **G**, Right Grip to **H**. Left Pad Click and Left Pad Touch are unbound until you assign them in Settings > Keybinds (Backspace clears a binding). Existing saved bindings take precedence over conflicting defaults. The new buttons use a local shared-memory mapping and release when Movement Mode pauses or the heartbeat stops.
-- **Controller poses:** Settings > Controller Poses adjusts each hand's position and pitch/yaw/roll relative to the headset, saves the values, and applies changes live. Reset restores both hands. These are fixed offsets, not independent hand tracking.
 
 ## What The Devkit/AHK Program Actually Does
 
@@ -63,13 +62,13 @@ There's only one real limitation right now. Because of how SkyrimVR's console ac
 
 Built in **Visual Studio Community 2022** against **[OpenVR 1.26.7](https://github.com/ValveSoftware/openvr/releases#release-v1.26.7)**, load up `driver_sample.sln`, set the configuration to **Release | x64** and add the OpenVR headers file as a directory (the project expects `C:\SDKs\OpenVR\openvr-1.26.7\headers`, change the include path in `driver_sample.vcxproj` if yours is elsewhere). The DLL it builds gets renamed `driver_null.dll` and goes in `null\bin\win64\` next to a `devkit_version.txt` that matches the Devkit's expected driver version. Almost all of the Devkit-specific code lives in one header, `devkit_input.h`.
 
-The controller buttons and pose settings need a driver rebuilt from this source; updating the frontend alone does not add them to an older DLL. This change does not set a new driver version or replace the packaged driver ZIP. For release packaging, include `resources/input/mycontroller_profile.json` as `null/resources/input/mycontroller_profile.json` alongside the rebuilt DLL. It declares the controller components registered by the driver.
+The controller buttons need a driver rebuilt from this source; updating the frontend alone does not add them to an older DLL. This change does not set a new driver version or replace the packaged driver ZIP. For release packaging, include `resources/input/mycontroller_profile.json` as `null/resources/input/mycontroller_profile.json` alongside the rebuilt DLL. It declares the controller components registered by the driver.
 
 ### Offline checks
 
 On Windows with AutoHotkey v2, run `python tests/frontend_tray_check.py` from the repository root. It exercises the real frontend functions on a separate, non-input desktop with temporary settings: shortcut conflicts and persistence, Select binding precedence and pulse timing, launcher PID publication, and dynamic icons. The VR-session lock and Null Driver backup checks require SteamVR to be closed and report a skip while it is running. The check never launches SteamVR or sends game input.
 
-`tests/grip_input_check.cpp` exercises shared-memory button input, heartbeat safety, and controller pose math without loading SteamVR. Build it with the Windows C++ toolchain and the same OpenVR include path as the driver. These offline checks do not establish live SteamVR or SkyrimVR behavior.
+`tests/grip_input_check.cpp` exercises shared-memory button input and heartbeat safety without loading SteamVR. Build it with the Windows C++ toolchain and the same OpenVR include path as the driver. These offline checks do not establish live SteamVR or SkyrimVR behavior.
 
 ---
 

@@ -46,13 +46,6 @@ struct Pose {
     double ow = 1, ox = 0, oy = 0, oz = 0;
 };
 
-struct ControllerPoseSettings {
-    double x, y, z, pitch, yaw, roll;
-};
-
-constexpr ControllerPoseSettings kDefaultLeftControllerPose = { -0.10, -0.20, -0.45, 45, 0, -15 };
-constexpr ControllerPoseSettings kDefaultRightControllerPose = { 0.10, -0.20, -0.45, 45, 0, 15 };
-
 struct Keys {
     bool lookUp = false, lookDown = false, lookLeft = false, lookRight = false;
     bool interact = false, reposition = false, reset = false, heartbeat = false;
@@ -103,13 +96,8 @@ struct ButtonMapping {
 };
 
 struct Shared {
-    Shared();
     std::mutex m;
     Pose pose;
-    ControllerPoseSettings leftController = kDefaultLeftControllerPose;
-    ControllerPoseSettings rightController = kDefaultRightControllerPose;
-    double leftRotation[4];
-    double rightRotation[4];
     double pitchDeg = 0; // total pitch applied so far, tracked so it can be clamped
     double yawDeg = 0;
 
@@ -237,47 +225,6 @@ inline void ApplyRotation(Pose& p, double pitchDeg, double yawDeg)
     if (len > 0) {
         p.ow /= len; p.ox /= len; p.oy /= len; p.oz /= len;
     }
-}
-
-inline void ControllerRotation(const ControllerPoseSettings& settings, double& w, double& x, double& y, double& z)
-{
-    const double kPi = 3.14159265358979323846 / 360.0;
-    const double hp = settings.pitch * kPi, hy = settings.yaw * kPi, hr = settings.roll * kPi;
-    const double pw = cos(hp), px = sin(hp), yw = cos(hy), yy = sin(hy), rw = cos(hr), rz = sin(hr);
-    double tw, tx, ty, tz;
-    QuatMultiply(yw, 0, yy, 0, pw, px, 0, 0, tw, tx, ty, tz);
-    QuatMultiply(tw, tx, ty, tz, rw, 0, 0, rz, w, x, y, z);
-}
-
-inline Shared::Shared()
-{
-    ControllerRotation(leftController, leftRotation[0], leftRotation[1], leftRotation[2], leftRotation[3]);
-    ControllerRotation(rightController, rightRotation[0], rightRotation[1], rightRotation[2], rightRotation[3]);
-}
-
-inline void RotateVector(const Pose& q, double x, double y, double z, double& rx, double& ry, double& rz)
-{
-    const double tx = 2 * (q.oy * z - q.oz * y);
-    const double ty = 2 * (q.oz * x - q.ox * z);
-    const double tz = 2 * (q.ox * y - q.oy * x);
-    rx = x + q.ow * tx + q.oy * tz - q.oz * ty;
-    ry = y + q.ow * ty + q.oz * tx - q.ox * tz;
-    rz = z + q.ow * tz + q.ox * ty - q.oy * tx;
-}
-
-inline Pose ControllerSnapshot(bool right)
-{
-    Shared& state = S();
-    std::lock_guard<std::mutex> lock(state.m);
-    const Pose& head = state.pose;
-    const ControllerPoseSettings& settings = right ? state.rightController : state.leftController;
-    const double* localRotation = right ? state.rightRotation : state.leftRotation;
-    Pose out = head;
-    double x, y, z;
-    RotateVector(head, settings.x, settings.y, settings.z, x, y, z);
-    out.px += x; out.py += y; out.pz += z;
-    QuatMultiply(head.ow, head.ox, head.oy, head.oz, localRotation[0], localRotation[1], localRotation[2], localRotation[3], out.ow, out.ox, out.oy, out.oz);
-    return out;
 }
 
 inline void Step(Shared& s, const Keys& k, double t)
@@ -410,34 +357,16 @@ inline void RefreshConfig(Shared& s, double t)
     std::ifstream f(ActionsDir() + "controls.txt");
     if (!f.is_open()) { s.cfgFound = false; return; }
     s.cfgFound = true;
-    bool leftRotationChanged = false, rightRotationChanged = false;
     std::string key, text;
     while (f >> key >> text) {
         char* end = nullptr;
         const double value = std::strtod(text.c_str(), &end);
         if (end == text.c_str() || *end != '\0' || !std::isfinite(value)) continue;
-        if (key.compare(0, 5, "left_") == 0 || key.compare(0, 6, "right_") == 0) {
-            const bool left = key.compare(0, 5, "left_") == 0;
-            ControllerPoseSettings& p = left ? s.leftController : s.rightController;
-            const bool angle = key.find("_pitch") != std::string::npos || key.find("_yaw") != std::string::npos || key.find("_roll") != std::string::npos;
-            if (angle ? value < -180 || value > 180 : value < -2 || value > 2) continue;
-            bool changedRotation = false;
-            if (key == "left_x" || key == "right_x") p.x = value;
-            else if (key == "left_y" || key == "right_y") p.y = value;
-            else if (key == "left_z" || key == "right_z") p.z = value;
-            else if (key == "left_pitch" || key == "right_pitch") { changedRotation = p.pitch != value; p.pitch = value; }
-            else if (key == "left_yaw" || key == "right_yaw") { changedRotation = p.yaw != value; p.yaw = value; }
-            else if (key == "left_roll" || key == "right_roll") { changedRotation = p.roll != value; p.roll = value; }
-            else continue;
-            if (changedRotation) (left ? leftRotationChanged : rightRotationChanged) = true;
-        }
-        else if (key == "turn_speed" && value > 0 && value < 2000) s.turnSpeed = value;
+        if (key == "turn_speed" && value > 0 && value < 2000) s.turnSpeed = value;
         else if (key == "mouse_sens" && value > 0 && value < 10) s.mouseSens = value;
         else if (key == "mouse_invert_y") s.mouseInvertY = (value != 0);
         else if (key == "mouse_enabled") s.mouseEnabled = (value != 0);
     }
-    if (leftRotationChanged) ControllerRotation(s.leftController, s.leftRotation[0], s.leftRotation[1], s.leftRotation[2], s.leftRotation[3]);
-    if (rightRotationChanged) ControllerRotation(s.rightController, s.rightRotation[0], s.rightRotation[1], s.rightRotation[2], s.rightRotation[3]);
 }
 
 inline void RefreshViewFile(Shared& s)

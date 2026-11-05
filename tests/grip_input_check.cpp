@@ -8,42 +8,6 @@
 int main()
 {
     using namespace DevkitInput;
-    Pose head;
-    Shared& poseState = S();
-    poseState.pose = head;
-    // Initial snapshots must honor configured angles before any controls file refresh.
-    for (bool hand : { false, true }) {
-        const auto& settings = hand ? poseState.rightController : poseState.leftController;
-        double w, x, y, z;
-        ControllerRotation(settings, w, x, y, z);
-        const Pose actual = ControllerSnapshot(hand);
-        assert(std::abs(actual.ow - w) < 1e-9 && std::abs(actual.ox - x) < 1e-9
-            && std::abs(actual.oy - y) < 1e-9 && std::abs(actual.oz - z) < 1e-9);
-    }
-    poseState.leftController = { -0.20, -0.35, -0.40, 0, 0, 0 };
-    ControllerRotation(poseState.leftController, poseState.leftRotation[0], poseState.leftRotation[1],
-        poseState.leftRotation[2], poseState.leftRotation[3]);
-    head.px = 1; head.py = 2; head.pz = 3;
-    head.ow = std::cos(3.14159265358979323846 / 4);
-    head.oy = std::sin(3.14159265358979323846 / 4);
-    poseState.pose = head;
-    Pose left = ControllerSnapshot(false);
-    assert(std::abs(left.px - 0.6) < 1e-9 && std::abs(left.pz - 3.2) < 1e-9);
-    ControllerPoseSettings zero = { 0, 0, 0, 0, 0, 0 };
-    poseState.leftController = zero;
-    left = ControllerSnapshot(false);
-    assert(left.px == head.px && left.py == head.py && left.pz == head.pz && left.ow == head.ow && left.oy == head.oy);
-    ControllerPoseSettings composed = { 0, 0, 0, 90, 90, 0 };
-    double cw, cx, cy, cz;
-    ControllerRotation(composed, cw, cx, cy, cz);
-    assert(std::abs(cx - 0.5) < 1e-9 && std::abs(cy - 0.5) < 1e-9 && std::abs(cz + 0.5) < 1e-9);
-    poseState.leftController = { 0, 0, 0, 90, 90, 90 };
-    ControllerRotation(poseState.leftController, poseState.leftRotation[0], poseState.leftRotation[1],
-        poseState.leftRotation[2], poseState.leftRotation[3]);
-    left = ControllerSnapshot(false);
-    assert(std::abs(left.ow - 0.5) < 1e-9 && std::abs(left.ox - 0.5) < 1e-9
-        && std::abs(left.oy - 0.5) < 1e-9 && std::abs(left.oz + 0.5) < 1e-9);
-
     Shared state;
     Keys keys;
     keys.buttonMappingValid = true;
@@ -123,5 +87,5 @@ int main()
     reader.Close();
     reader.nextOpen = 100; // Model an absent mapping without touching the production named object.
     assert(!reader.Read(1, word) && word == 0);
-    std::cout << "PASS: Controller transform invariants, grip/left click-touch, F23 timing, and reserved-bit rejection\n";
+    std::cout << "PASS: grip/left click-touch, F23 timing, and reserved-bit rejection\n";
 }

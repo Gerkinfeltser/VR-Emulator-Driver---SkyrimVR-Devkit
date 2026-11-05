@@ -64,22 +64,6 @@ MovementKeyDefaults := Map(
 )
 ; Defaults until LoadKeyBinds runs: MainTick starts first and must find every action's key.
 MovementKeyBinds := MovementKeyDefaults.Clone()
-ControllerPoses := Map()
-ControllerPoseEdits := Map()
-ControllerPoseDefaults := Map(
-    "left_x", -0.10, "left_y", -0.20, "left_z", -0.45,
-    "left_pitch", 45.0, "left_yaw", 0.0, "left_roll", -15.0,
-    "right_x", 0.10, "right_y", -0.20, "right_z", -0.45,
-    "right_pitch", 45.0, "right_yaw", 0.0, "right_roll", 15.0
-)
-ControllerPoseLabels := Map(
-    "x", "X (right)", "y", "Y (up)", "z", "Z (back)",
-    "pitch", "Pitch", "yaw", "Yaw", "roll", "Roll"
-)
-for key, value in ControllerPoseDefaults
-    ControllerPoses[key] := value
-ControllerPoseLimits := Map("x", 2.0, "y", 2.0, "z", 2.0,
-                            "pitch", 180.0, "yaw", 180.0, "roll", 180.0)
 ; The game's own exe, and launchers that load the game into their own process (urSovngarde, the co-op mod, also
 ; under its old name SkyrimTogetherVR.exe), so the game window belongs to them. More names: [Game] ExtraExes in
 ; steam_location.ini, comma separated.
@@ -151,23 +135,6 @@ TrayMovementItemLabel := ""
 TrayMovementIconAttemptedState := ""
 
 
-ReadControllerPose(value, limit, &parsed) {
-    if !IsNumber(value) || InStr(StrLower(value), "0x")
-        return false
-    parsed := Float(value)
-    return parsed >= -limit && parsed <= limit
-}
-
-LoadControllerPoses() {
-    global ControllerPoses, ControllerPoseDefaults, ControllerPoseLimits, BootstrapFile
-    for key, defaultValue in ControllerPoseDefaults {
-        value := IniRead(BootstrapFile, "Controls", key, "")
-        axis := SubStr(key, InStr(key, "_") + 1)
-        limit := ControllerPoseLimits[axis]
-        ControllerPoses[key] := ReadControllerPose(value, limit, &parsed) ? parsed : defaultValue
-        try IniWrite(String(ControllerPoses[key]), BootstrapFile, "Controls", key)
-    }
-}
 MovementMode := false
 ConsoleDialogOpen := false
 ConsoleDialogHwnd := 0
@@ -411,7 +378,7 @@ LoadControlSettings() {
 
 SaveControlSettings() {
     global TurnSpeed, TurnSensitivity, ConsoleMS, BootstrapFile, AutoConsoleView, MMNotificationEnabled
-    global MouseLookEnabled, MouseSensitivity, MouseInvertY, ControllerPoses, ControllerPoseDefaults
+    global MouseLookEnabled, MouseSensitivity, MouseInvertY
     try {
         IniWrite(AutoConsoleView ? "1" : "0", BootstrapFile, "Controls", "AutoConsoleView")
         IniWrite(MMNotificationEnabled ? "1" : "0", BootstrapFile, "Controls", "MMNotificationEnabled")
@@ -421,8 +388,6 @@ SaveControlSettings() {
         IniWrite(Format("{:.1f}", TurnSpeed), BootstrapFile, "Controls", "TurnSpeed")
         IniWrite(Format("{:.2f}", TurnSensitivity), BootstrapFile, "Controls", "TurnSensitivity")
         IniWrite(String(ConsoleMS), BootstrapFile, "Controls", "ConsoleMS")
-        for key in ControllerPoseDefaults
-            IniWrite(String(ControllerPoses[key]), BootstrapFile, "Controls", key)
     }
     WriteDriverControls()
 }
@@ -430,7 +395,6 @@ SaveControlSettings() {
 WriteDriverControls() {
     global TurnSpeed, TurnSensitivity, ControlsFile
     global MouseLookEnabled, MouseSensitivity, MouseBaseSens, MouseInvertY
-    global ControllerPoses, ControllerPoseDefaults
     if ControlsFile = ""
         return
     speed := Min(TurnSpeed * TurnSensitivity, 1800.0)
@@ -438,10 +402,6 @@ WriteDriverControls() {
           . "mouse_enabled " (MouseLookEnabled ? 1 : 0) "`n"
           . "mouse_sens " Format("{:.4f}", MouseBaseSens * MouseSensitivity) "`n"
           . "mouse_invert_y " (MouseInvertY ? 1 : 0) "`n"
-    for key in ControllerPoseDefaults {
-        axis := SubStr(key, InStr(key, "_") + 1)
-        text .= key " " Format(axis = "x" || axis = "y" || axis = "z" ? "{:.3f}" : "{:.1f}", ControllerPoses[key]) "`n"
-    }
     try {
         f := FileOpen(ControlsFile, "w")
         f.Write(text)
@@ -486,7 +446,6 @@ OnMouseSensChange(ctrl, *) {
     QueueSaveControlSettings()
 }
 
-LoadControllerPoses()
 LoadControlSettings()
 LoadCustomCommands()
 
@@ -801,7 +760,6 @@ OpenSettings(*) {
     global MovementToggleHotkey, MovementToggleEdit
     global MouseLookEnabled, MouseSensitivity, MouseInvertY, MouseSensLabel
     global SteamEdit, LiveEdit, BtnDownload, SensLabel, SensSlider, BootstrapFile
-    global ControllerPoses, ControllerPoseDefaults, ControllerPoseLabels, ControllerPoseEdits
     global MenuActions, ControlActions, MovementKeyLabels, MovementKeyBinds, MovementKeyDefaults
     global RenderPresets, FpsOptions, DispPresetDDL, DispWEdit, DispHEdit, DispFpsDDL, DispStatus
 
@@ -818,7 +776,7 @@ OpenSettings(*) {
     SettingsGui.MarginY := 15
     ApplyDarkTitlebar(SettingsGui)
 
-    SettingsTabs := SettingsGui.AddTab3("x15 y15 w460 h500", ["General", "Controls", "Keybinds", "Display", "Controller Poses"])
+    SettingsTabs := SettingsGui.AddTab3("x15 y15 w460 h500", ["General", "Controls", "Keybinds", "Display"])
 
     SettingsTabs.UseTab(1)
     SettingsGui.AddText("x35 y55 w420", "Steam install folder:")
@@ -927,26 +885,6 @@ OpenSettings(*) {
     SettingsGui.AddButton("x35 y+18 w420", "Apply to Null Driver").OnEvent("Click", OnApplyDisplay)
     DispStatus := SettingsGui.AddText("x35 y+10 w420 cSilver", "")
     RefreshDisplayTab()
-    SettingsTabs.UseTab(5)
-    SettingsGui.AddText("x35 y55 w420 cSilver", "Offsets are metres in headset-local axes: +X right, +Y up, +Z backwards. Position = head position + rotate(head rotation, local offset). Rotation = head × yaw(Y) × pitch(X) × roll(Z), right-handed degrees.")
-    SettingsGui.AddText("x90 y120 w150 cSilver Center", "Left")
-    SettingsGui.AddText("x300 y120 w150 cSilver Center", "Right")
-    ControllerPoseEdits := Map()
-    poseAxes := ["x", "y", "z", "pitch", "yaw", "roll"]
-    for index, axis in poseAxes {
-        y := 151 + (index - 1) * 43
-        label := ControllerPoseLabels[axis]
-        for handIndex, hand in ["left", "right"] {
-            key := hand "_" axis
-            x := handIndex = 1 ? 35 : 255
-            editX := handIndex = 1 ? 125 : 345
-            SettingsGui.AddText("x" x " y" y " w85", label)
-            edit := SettingsGui.AddEdit("x" editX " y" (y - 4) " w85 Right Background" DarkCtrlBG " c" InputFGStr, Format(axis = "x" || axis = "y" || axis = "z" ? "{:.3f}" : "{:.1f}", ControllerPoses[key]))
-            edit.OnEvent("LoseFocus", OnControllerPoseChanged.Bind(key))
-            ControllerPoseEdits[key] := edit
-        }
-    }
-    SettingsGui.AddButton("x35 y420 w420", "Reset Both Controllers to Defaults").OnEvent("Click", ResetControllerPoses)
 
 
     SettingsTabs.UseTab()
@@ -1189,28 +1127,6 @@ OfferCleanSlate() {
     Reload()
 }
 
-OnControllerPoseChanged(key, ctrl, *) {
-    global ControllerPoses, ControllerPoseLimits
-    axis := SubStr(key, InStr(key, "_") + 1)
-    limit := ControllerPoseLimits[axis]
-    value := ctrl.Text
-    if ReadControllerPose(value, limit, &parsed)
-        ControllerPoses[key] := parsed
-    else
-        MsgBox(Format("Controller pose value must be between {} and {}. Reverting to the last valid value.", -limit, limit), "Invalid Value", "IconX")
-    ctrl.Text := Format(axis = "x" || axis = "y" || axis = "z" ? "{:.3f}" : "{:.1f}", ControllerPoses[key])
-    QueueSaveControlSettings()
-}
-
-ResetControllerPoses(*) {
-    global ControllerPoses, ControllerPoseDefaults, ControllerPoseEdits
-    for key, value in ControllerPoseDefaults {
-        ControllerPoses[key] := value
-        axis := SubStr(key, InStr(key, "_") + 1)
-        ControllerPoseEdits[key].Text := Format(axis = "x" || axis = "y" || axis = "z" ? "{:.3f}" : "{:.1f}", value)
-    }
-    QueueSaveControlSettings()
-}
 
 ClampNum(val, lo, hi) {
     val += 0

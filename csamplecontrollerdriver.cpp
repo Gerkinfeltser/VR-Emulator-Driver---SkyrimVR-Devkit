@@ -151,15 +151,17 @@ vr::DriverPose_t CSampleControllerDriver::GetPose()
     pose.qWorldFromDriverRotation = HmdQuaternion_Init(1, 0, 0, 0);
     pose.qDriverFromHeadRotation = HmdQuaternion_Init(1, 0, 0, 0);
 
-    // Follow the shared headset pose with this hand's calibrated local offset and rotation.
-    const DevkitInput::Pose controller = DevkitInput::ControllerSnapshot(ControllerIndex != 1);
-    pose.qRotation.w = controller.ow;
-    pose.qRotation.x = controller.ox;
-    pose.qRotation.y = controller.oy;
-    pose.qRotation.z = controller.oz;
-    pose.vecPosition[0] = controller.px;
-    pose.vecPosition[1] = controller.py;
-    pose.vecPosition[2] = controller.pz;
+    // The pose is computed once per frame in DevkitInput::Update() and shared by the headset and both
+    // controllers (everything turns and moves together, as it did when the frontend wrote the same
+    // line to every device file). This is just a read.
+    const DevkitInput::Pose p = DevkitInput::Snapshot();
+    pose.qRotation.w = p.ow;
+    pose.qRotation.x = p.ox;
+    pose.qRotation.y = p.oy;
+    pose.qRotation.z = p.oz;
+    pose.vecPosition[0] = p.px;
+    pose.vecPosition[1] = p.py;
+    pose.vecPosition[2] = p.pz;
 
     return pose;
 }
