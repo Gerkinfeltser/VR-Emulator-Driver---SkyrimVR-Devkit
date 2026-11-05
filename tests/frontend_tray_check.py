@@ -251,6 +251,7 @@ CheckWindowIcons() {
     offImages := Map()
     for state in ["OFF", "ON", "OFF"] {
         MovementModeRequested := state = "ON"
+        MovementMode := state = "ON"
         UpdateTrayControls()
         Check(!A_DetectHiddenWindows, "Icon refresh changed hidden-window detection")
         created := Gui()
@@ -356,7 +357,7 @@ def main():
             raise ctypes.WinError(ctypes.get_last_error())
         try:
             (Path(temp) / "icons").mkdir()
-            for icon in ("MM-OFF.png", "MM-ON.png"):
+            for icon in ("MM-OFF.png", "MM-ON.png", "MM-WAIT.png"):
                 shutil.copyfile(frontend.parent / "icons" / icon, Path(temp) / "icons" / icon)
             script = Path(temp) / "check.ahk"
             script.write_text(CHECK.replace("FRONTEND_PATH", str(frontend)), encoding="utf-8")
