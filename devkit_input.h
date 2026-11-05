@@ -38,7 +38,7 @@ constexpr double kDefaultTurnSpeed   = 216.0; // degrees per second
 constexpr double kMaxFrameDt         = 0.1;   // a hitch longer than this doesn't cause a turn jump
 constexpr double kMaxPitch           = 89.0;  // look up/down stops here, like a neck
 constexpr double kDefaultMouseSens   = 0.05;  // degrees per mouse count (the frontend sends this times its slider)
-constexpr const char* kDriverBuild   = "2.0.1"; // reported in driver_status.txt
+constexpr const char* kDriverBuild   = "2.0.2"; // reported in driver_status.txt
 constexpr double kMaxMouseStep       = 90.0;  // most the mouse can turn in one frame, so a burst can't spin the view
 
 struct Pose {
