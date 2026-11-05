@@ -612,8 +612,8 @@ BuildQuickCommandsWindow(x := "", y := "") {
     QuickCommandsGui.MarginY := 15
     ApplyDarkTitlebar(QuickCommandsGui)
 
-    BtnCloseDash := QuickCommandsGui.AddButton("x15 y15 w200 h28", "Close Dashboard")
-    BtnCloseDash.OnEvent("Click", (*) => TestPulse("F13"))
+    BtnToggleDash := QuickCommandsGui.AddButton("x15 y15 w200 h28", "Toggle Dashboard")
+    BtnToggleDash.OnEvent("Click", (*) => TestPulse("F13"))
 
     BtnNudge := QuickCommandsGui.AddButton("x235 y15 w200 h28", "Move to Console View")
     BtnNudge.OnEvent("Click", MoveToConsoleView)
@@ -2195,7 +2195,7 @@ WarnIfDriverProblem() {
         what := "The devkit's null driver doesn't look installed (no version marker was found), so SteamVR is probably running its own built-in null driver instead."
     else
         what := "The devkit's null driver is " problem "."
-    answer := MsgBox(what "`n`nWith the wrong driver, the look keys, interact and 'Close Dashboard' will not work, even though Movement Mode says it's on.`n`nOpen the Setup Checklist to fix it?", "Devkit Driver Needed", "YesNo Icon!")
+    answer := MsgBox(what "`n`nWith the wrong driver, the look keys, interact and 'Toggle Dashboard' will not work, even though Movement Mode says it's on.`n`nOpen the Setup Checklist to fix it?", "Devkit Driver Needed", "YesNo Icon!")
     if answer = "Yes"
         ShowSetupChecklist()
 }
