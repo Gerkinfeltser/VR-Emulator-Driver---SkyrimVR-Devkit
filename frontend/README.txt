@@ -1,5 +1,5 @@
 ============================================================
-SkyrimVR Devkit v2.0.1
+SkyrimVR Devkit v2.0.2
 ============================================================
 
 HOW TO RUN:
@@ -20,6 +20,40 @@ After installing, use "Enable Null Driver in SteamVR" to enable the driver.
 DO NOT use Download/Install, Download/Update or Repair, including the first-run checklist's download
 step: those still fetch upstream and can overwrite this fork. The older download instructions in
 the in-app How To and release notes below are not the fork installation procedure.
+
+This frontend requires the v2.0.2 driver source features. Existing packaged fork artifacts are not
+rebuilt by this port; use a matching fork build, not the upstream download buttons.
+
+============================================================
+WHAT'S NEW IN v2.0.2 (since v2.0.1)
+============================================================
+
+LAUNCHER SUPPORT
+
+- Devkit now supports launchers such as urSovngarde and SkyrimTogetherVR.exe by default.
+
+INTERACTING WITH THE STEAMVR HOME WINDOW
+
+- Select defaults to H in this fork (upstream uses G, already assigned to Right Grip here) and selects what you are looking at in the SteamVR Home overlay.
+- Button is rebindable in Settings > Keybinds.
+  Backspace clears Select; saved settings persist. If H is already bound to another action or is the
+  Movement Mode shortcut's base key, Select starts unbound instead of replacing that binding.
+
+BUTTON CHANGES?!??!? WOW!
+
+- Also adds a button for said SteamVR Home window interaction to Quick Commands, in replace of a now defunct button that I left there on accident.
+
+MORE KEYBOARD LAYOUT FIXES
+
+- This hopefully might be the last fix for keyboard layout differences. In specific layouts (German so far)  the console key is the dead key ^. 
+A pending ^ combined with the next key and ended up in the line, so commands failed silently. A space ends a pending dead key and backspaces clear the rest before the paste.
+
+- ConsoleMS now defaults to 40ms instead of 25ms; the paste sequence holds keys for at least 40ms so presses span a game frame at 30fps. Saved console-delay settings are preserved.
+
+SMALLER CHANGES
+
+- The frontend now writes specific Process ID's (PID) to a file as a backup incase something goes wrong with detecting required executables (urSovngarde, SkyrimTogetherVR.exe)
+- The "Enable Null Driver in SteamVR" checkbox is now locked while SteamVR or the game is open as to prevent misclicks.
 
 ============================================================
 WHAT'S NEW IN v2.0.1 (since v2.0)
@@ -101,6 +135,7 @@ CONTROLS
   Enable Null Driver in SteamVR (below Settings) mirrors the main checkbox and retains its
   backup safeguards. Restart SteamVR after changing it; its checkmark reports the configured
   setting, not whether the driver is currently loaded.
+  Attempts from either checkbox or tray are ignored while SteamVR or a supported game/launcher runs.
   Movement Mode is checked when enabled. MM-ON/OFF icons show that requested state, not temporary
   focus/console pauses; the main window's Live line still reports whether input is active.
   Window/title-bar and taskbar icons also switch with requested Movement Mode, including hidden
@@ -135,10 +170,10 @@ CONTROLS
 
 CONSOLE VIEW
 
-- Quick Commands has "Move to Console View" and "Reset Camera" buttons (replacing "Position Camera and
-  Controller"). Move to Console View puts the camera at a spot where the console is readable, and pressing it
-  twice doesn't move you twice. It turns with you, so it lands in the same place wherever you're looking.
-  Reset Camera goes back to the start but keeps the direction you're looking.
+- Quick Commands has "Move to Console View" and "Select (A + trigger)" buttons. Move to Console View
+  puts the camera at a spot where the console is readable, and pressing it twice doesn't move you twice.
+  It turns with you, so it lands in the same place wherever you're looking.
+  Select pulses the same F24 controller input as the held Select key.
 - Optional "Auto console view" (Settings > Controls): the camera moves in when you open the game console with
   ~ and back when you close it.
 - The position can be tuned without rebuilding anything: edit console_view.txt in
@@ -172,8 +207,10 @@ SETUP, DRIVER AND UPDATES
 OFFLINE FRONTEND CHECK:
 
 Run python tests/frontend_tray_check.py from the fork repository (Windows + AutoHotkey v2).
-It checks shortcut conflicts, save failures, reload and physical-modifier matching on a separate,
-non-input desktop with temporary settings. It never starts SteamVR or sends game input.
+It checks shortcut conflicts, save failures, reload, physical-modifier matching, Select binding precedence
+and pulse timing under timer interruption, launcher PID publication, VR-session locking, backup guards,
+and dynamic icons on a separate, non-input desktop with temporary settings.
+It never starts SteamVR or sends game input.
 
 ============================================================
 The SkyrimVR Devkit script ("SkyrimVR Devkit.ahk") is free software, licensed under the GNU General Public

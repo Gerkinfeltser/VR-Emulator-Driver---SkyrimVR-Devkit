@@ -17,10 +17,14 @@ import tempfile
 CHECK = r'''
 #Requires AutoHotkey v2.0
 try {
+    global GameExeNames := [], GameGroupReady := false
     CheckShortcuts()
+    CheckSelectBindings()
+    CheckSelectPulse()
+    CheckLauncherPid()
     CheckDriverToggle()
     CheckWindowIcons()
-    FileAppend("PASS shortcut conflicts/persistence, Null Driver backup guards, and dynamic window icons`n", "*")
+    FileAppend("PASS shortcut conflicts/persistence, Select binding conflicts, launcher PID publication, VR-session lock, Null Driver backup guards, and dynamic window icons`n", "*")
     ExitApp(0)
 } catch as e {
     FileAppend(e.Message " at line " e.Line "`n", "**")
@@ -107,6 +111,81 @@ CheckShortcuts() {
     }
 }
 
+CheckSelectBindings() {
+    global AllBindActions := ["Interact", "RightGrip", "PressA"]
+    global MovementKeyDefaults := Map("Interact", "sc013", "RightGrip", "sc022", "PressA", "sc023")
+    global MovementKeyLabels := Map("Interact", "Interact", "RightGrip", "RightGrip", "PressA", "Select (A)")
+    global ControllerButtonBits := Map("RightGrip", 65536), MovementKeyBinds := Map(), ConfigFile := ""
+    global BootstrapFile := A_ScriptDir "\select.ini"
+    IniWrite("sc023", BootstrapFile, "KeyBinds", "Interact")
+    LoadKeyBinds()
+    Check(MovementKeyBinds["Interact"] = "sc023", "Select displaced an existing H binding")
+    Check(MovementKeyBinds["RightGrip"] = "sc022", "Select displaced Right Grip")
+    Check(MovementKeyBinds["PressA"] = "", "Select retained a conflicting default")
+    FileDelete(BootstrapFile)
+    IniWrite("^+h", BootstrapFile, "KeyBinds", "MovementModeToggle")
+    LoadKeyBinds()
+    Check(MovementKeyBinds["PressA"] = "", "Select default conflicts with a saved shortcut")
+    LoadMovementToggleHotkey()
+    Check(MovementToggleHotkeyDisplay() = "Ctrl+Shift+H", "Select displaced the saved shortcut")
+    SaveKeyBind("PressA", "none")
+    IniDelete(BootstrapFile, "KeyBinds", "MovementModeToggle")
+    LoadKeyBinds()
+    Check(MovementKeyBinds["PressA"] = "", "Cleared Select binding did not survive reload")
+}
+
+CheckSelectPulse() {
+    global MovementMode := false, MovementKeyBinds := Map("PressA", "sc023")
+    global GhostKeys := Map("PressA", "F24"), GhostHeld := Map("PressA", false), GhostPulses := Map()
+    global GhostHeartbeat := "F23", HeartbeatState := false, LogicalKeys := Map()
+    interrupted := false, ticks := 0
+    global ControllerButtonsView := 0
+    duringPulse() {
+        ticks += 1
+        SyncGhostKeys()
+        ReleaseGhostKeys(true)
+        if !GetKeyState("F24")
+            interrupted := true
+        TestPulse("F24") ; overlapping requests coalesce instead of releasing/deleting the outer pulse
+        if !GetKeyState("F24")
+            interrupted := true
+    }
+    SetTimer(duringPulse, 10)
+    try TestPulse("F24")
+    finally SetTimer(duringPulse, 0)
+    Check(ticks > 0 && !interrupted, "Ghost synchronization truncated the Quick Commands Select pulse")
+    Check(!GetKeyState("F24") && !GhostPulses.Has("F24"), "Select pulse left its controller input held")
+}
+
+SendEvent(keys) {
+    ; Input boundary: simulate logical state without sending keys to the owner's input desktop.
+    global LogicalKeys
+    if RegExMatch(keys, "^\{(\w+) (down|up)\}$", &match)
+        LogicalKeys[match[1]] := match[2] = "down"
+    else
+        throw Error("Unexpected ghost input: " keys)
+}
+
+CheckLauncherPid() {
+    global GameExeNames := ["missing-devkit-test.exe"], GameGroupReady := false
+    global BootstrapFile := A_ScriptDir "\launcher.ini", ActionDir := A_ScriptDir "\Actions"
+    IniWrite("AutoHotkey64.exe", BootstrapFile, "Game", "ExtraExes")
+    EnsureGameGroup()
+    Check(GamePid(), "Configured extra launcher was not detected")
+    DirCreate(ActionDir)
+    window := Gui()
+    window.Show("NA w200 h80")
+    try {
+        WriteGamePid()
+        Check(FileRead(ActionDir "\game_pid.txt") = DllCall("GetCurrentProcessId"), "Published PID does not own the launcher window")
+        Check(!FileExist(ActionDir "\game_pid.txt.tmp"), "PID publication left a partial file")
+    } finally
+        window.Destroy()
+    WriteGamePid()
+    Check(FileRead(ActionDir "\game_pid.txt") = "0", "Closing the launcher window did not clear its PID")
+    GameExeNames := []
+}
+
 CheckDriverToggle() {
     global MainGui := Gui(), Active := "Original", NullDriverKey := "driver_null"
     global StatusText := MainGui.AddText(), ChkDriverEnabled := MainGui.AddCheckbox()
@@ -119,6 +198,15 @@ CheckDriverToggle() {
     ChkDriverEnabled.OnEvent("Click", ToggleDriverEnabled)
     InitTrayControls()
     id := TrayItemId("Enable Null Driver in SteamVR")
+    ; Treat this check's real AHK process as a launcher; never start SteamVR or a game.
+    global GameExeNames := ["AutoHotkey64.exe"]
+    LockDriverCheckbox()
+    Check(!ChkDriverEnabled.Enabled, "Running launcher did not lock the checkbox")
+    ToggleDriverFromTray()
+    Check(FileRead(LivePath) = original && !ChkDriverEnabled.Value, "Tray changed driver configuration during a VR session")
+    GameExeNames := []
+    LockDriverCheckbox()
+    Check(ChkDriverEnabled.Enabled, "Stopped launcher did not unlock the checkbox")
     DetectHiddenWindows(true)
     PostMessage(0x111, id, 0,, "ahk_id " A_ScriptHwnd)
     Sleep(50)

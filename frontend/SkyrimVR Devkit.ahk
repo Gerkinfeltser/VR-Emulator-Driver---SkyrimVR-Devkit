@@ -13,10 +13,10 @@ try SetFrontendIcon(A_ScriptDir "\icons\MM-OFF.png")
 TurnSpeed  := 216.0
 TurnSensitivity := 1.0
 LookTickMs := 16.66
-ConsoleMS  := 25
+ConsoleMS  := 40
 
 MenuActions     := ["MoveUp", "MoveDown"]
-ControlActions  := ["LookUp", "LookDown", "LookLeft", "LookRight", "Interact", "RightGrip", "LeftTrackpadClick", "LeftTrackpadTouch"]
+ControlActions  := ["LookUp", "LookDown", "LookLeft", "LookRight", "Interact", "RightGrip", "LeftTrackpadClick", "LeftTrackpadTouch", "PressA"]
 ControllerButtonBits := Map("RightGrip", 65536, "LeftTrackpadClick", 4096, "LeftTrackpadTouch", 8192)
 AllBindActions  := []
 for action in MenuActions
@@ -24,8 +24,11 @@ for action in MenuActions
 for action in ControlActions
     AllBindActions.Push(action)
 
-GhostKeys := Map("LookUp", "F16", "LookDown", "F17", "LookLeft", "F18", "LookRight", "F19", "Interact", "F20")
-GhostHeld := Map("LookUp", false, "LookDown", false, "LookLeft", false, "LookRight", false, "Interact", false)
+; F24: Select, the right controller's A and trigger together (held as long as the key is). SteamVR's dashboard clicks
+; with the trigger where the laser points (aim with the look keys or the mouse), A prompts take A.
+GhostKeys := Map("LookUp", "F16", "LookDown", "F17", "LookLeft", "F18", "LookRight", "F19", "Interact", "F20", "PressA", "F24")
+GhostHeld := Map("LookUp", false, "LookDown", false, "LookLeft", false, "LookRight", false, "Interact", false, "PressA", false)
+GhostPulses := Map()
 GhostReposition := "F21"
 GhostReset      := "F22"
 GhostHeartbeat  := "F23"
@@ -43,7 +46,8 @@ MovementKeyLabels := Map(
     "Interact",    "Interact",
     "RightGrip",   "Right Grip",
     "LeftTrackpadClick", "L Pad Click",
-    "LeftTrackpadTouch", "L Pad Touch"
+    "LeftTrackpadTouch", "L Pad Touch",
+    "PressA",      "Select (A)"
 )
 MovementKeyDefaults := Map(
     "MoveUp",      "sc012", ; E
@@ -55,7 +59,8 @@ MovementKeyDefaults := Map(
     "Interact",    "sc013", ; R
     "RightGrip",   "sc022", ; G
     "LeftTrackpadClick", "",
-    "LeftTrackpadTouch", ""
+    "LeftTrackpadTouch", "",
+    "PressA",      "sc023"  ; H (G is the fork's Right Grip)
 )
 MovementKeyBinds := Map()
 ControllerPoses := Map()
@@ -74,6 +79,66 @@ for key, value in ControllerPoseDefaults
     ControllerPoses[key] := value
 ControllerPoseLimits := Map("x", 2.0, "y", 2.0, "z", 2.0,
                             "pitch", 180.0, "yaw", 180.0, "roll", 180.0)
+; The game's own exe, and launchers that load the game into their own process (urSovngarde, the co-op mod, also
+; under its old name SkyrimTogetherVR.exe), so the game window belongs to them. More names: [Game] ExtraExes in
+; steam_location.ini, comma separated.
+GameExeNames := ["SkyrimVR.exe", "urSovngarde.exe", "SkyrimTogetherVR.exe"]
+GameGroupReady := false
+
+EnsureGameGroup() {
+    global GameExeNames, GameGroupReady, BootstrapFile
+    if GameGroupReady
+        return
+    GameGroupReady := true
+    if IsSet(BootstrapFile) && BootstrapFile != "" {
+        for extra in StrSplit(IniRead(BootstrapFile, "Game", "ExtraExes", ""), ",", " `t")
+            if extra != ""
+                GameExeNames.Push(extra)
+    }
+    for exe in GameExeNames
+        GroupAdd("SkyrimGame", "ahk_exe " exe)
+}
+
+; The game's process id, 0 when it isn't running
+GamePid() {
+    global GameExeNames
+    EnsureGameGroup()
+    for exe in GameExeNames
+        if pid := ProcessExist(exe)
+            return pid
+    return 0
+}
+
+GameWindowActive() {
+    EnsureGameGroup()
+    return WinActive("ahk_group SkyrimGame") || WinActive("ahk_exe vrcompositor.exe")
+}
+
+; Tells the driver the game's process id (<Actions>/game_pid.txt), which it checks first: the driver then finds the
+; game whatever its process is called. Written only when it changes.
+WriteGamePid() {
+    global ActionDir
+    static last := -1
+    if !IsSet(ActionDir) || ActionDir = "" || !DirExist(ActionDir)
+        return
+    EnsureGameGroup()
+    pid := 0
+    if hwnd := WinExist("ahk_group SkyrimGame")
+        pid := WinGetPID("ahk_id " hwnd)
+    if pid = last
+        return
+    try {
+        f := FileOpen(ActionDir "\game_pid.txt.tmp", "w", "UTF-8-RAW")
+        f.Write(pid)
+        f.Close()
+        FileMove(ActionDir "\game_pid.txt.tmp", ActionDir "\game_pid.txt", 1)
+        last := pid
+    }
+}
+
+ActionDir    := ""
+ControlsFile := ""
+
 MovementModeRequested := false
 MMNotificationEnabled := false
 MovementToggleHotkey := ""
@@ -133,14 +198,13 @@ RenderPresets := [
 ]
 FpsOptions := [30, 45, 60, 72, 80, 90, 120, 144]
 InitControllerButtonsMapping()
-UpdateLiveMovementMode()
 
 RepoURL := "https://github.com/DubiousDuo/VR-Emulator-Driver---SkyrimVR-Devkit/raw/main/null%20driver.zip"
 
 ; This is NOT a build/release version for the AHK tool itself, this is for the driver. For anyone reading this, PLEASE don't touch these, this is for the tool to make sure things aren't fucked.
-ExpectedDriverVersion := "2.0.1"
+ExpectedDriverVersion := "2.0.2"
 
-ScriptVersion := "2.0.1" ; Same as the other one, except for the Frontend only.
+ScriptVersion := "2.0.2" ; Same as the other one, except for the Frontend only.
 
 CandlelightOn := false
 
@@ -261,7 +325,7 @@ HowToSections := [
         "This section explains how to move, look around and do things.`n`n"
 		"It's quite simple to be fair. You move around with WASD, look around with the arrow keys, navigate system menus with Q/E, interact with objects by pressing R, sprint by using Left Shift. No arrow keys on your keyboard (or they don't work)? Open Settings > Keybinds and rebind look, interact and the menu keys to whatever you like.`n`n"
 		"Most stock Skyrim keys work. TAB opens the cross menu, ESC opens the settings menu, J opens the journal, etc.`n`n"
-		"If you need to look at something more closey, such as a menu or the console to read data off of it, open 'Quick Commands...' and press 'Move to Console View', which puts the camera at a spot where the console is readable ('Reset Camera' puts it back). If you'd rather not do that by hand, tick 'Auto console view' in Settings > Controls and the camera moves in when you open the game console with ~ and back when you close it. There's no free camera movement any more, because moving the camera directly tends to screw things up.`n`n"
+		"If you need to look at something more closey, such as a menu or the console to read data off of it, open 'Quick Commands...' and press 'Move to Console View', which puts the camera at a spot where the console is readable. Tick 'Auto console view' in Settings > Controls to move the camera in when you open the game console with ~ and back when you close it. Quick Commands also has 'Select (A + trigger)' for SteamVR overlay interaction; hold the rebindable Select key (H by default in this fork) for a longer press. There's no free camera movement any more, because moving the camera directly tends to screw things up.`n`n"
 			"MOUSE LOOK: you can also look around with the mouse. While Movement Mode is live and SkyrimVR is focused, RIGHT-CLICK in the game to turn mouse look on; the cursor gets held in the middle of the window and moving the mouse turns the view. Right-click again to turn it off and get your cursor back. It turns itself off, within about half a second, whenever Movement Mode pauses (console open, you click away from the game, the devkit closes), so you'll never be stuck without a cursor. Sensitivity, invert Y and an off switch are in Settings > Controls. This is done by the null driver, so it needs the v2.0 driver."
     )},
     {Title: "Movement Mode", Body:
@@ -320,6 +384,7 @@ if !DirExist(Root)
     DirCreate(Root)
 BootstrapFile := Root "\steam_location.ini"
 CommandsFile  := Root "\commands.ini"
+EnsureGameGroup()
 
 LoadControlSettings() {
     global TurnSpeed, TurnSensitivity, ConsoleMS, BootstrapFile, AutoConsoleView, MMNotificationEnabled
@@ -552,9 +617,10 @@ BuildQuickCommandsWindow(x := "", y := "") {
 
     BtnNudge := QuickCommandsGui.AddButton("x235 y15 w200 h28", "Move to Console View")
     BtnNudge.OnEvent("Click", MoveToConsoleView)
-
-    BtnResetCam := QuickCommandsGui.AddButton("x15 y+8 w200 h28", "Reset Camera")
-    BtnResetCam.OnEvent("Click", ResetCameraView)
+	
+	; Select: the right controller's A and trigger, for a moment (the Select key holds them as long as it's held)
+    BtnPressA := QuickCommandsGui.AddButton("x15 y+8 w200 h28", "Select (A + trigger)")
+    BtnPressA.OnEvent("Click", (*) => TestPulse("F24"))
 
     chkEdit := QuickCommandsGui.AddCheckBox("x235 yp+4 w200", "Edit mode (click a button to edit it)")
     chkEdit.Value := QuickEditMode ? 1 : 0
@@ -1097,7 +1163,7 @@ OfferCleanSlate() {
         return
     }
 
-    if ProcessExist("SkyrimVR.exe") {
+    if GamePid() {
         MsgBox("SkyrimVR is running. Close the game first (closing Steam would take it down), then open the devkit again; this will be offered again.", "Close the Game First", "IconX")
         return
     }
@@ -1256,7 +1322,7 @@ RebindMovementKey(action, ctrl, *) {
             return
         }
 
-        newSc := ControllerButtonBits.Has(action) && pressedKey = "Backspace" ? "" : Format("sc{:03X}", GetKeySC(pressedKey))
+        newSc := (ControllerButtonBits.Has(action) || action = "PressA") && pressedKey = "Backspace" ? "" : Format("sc{:03X}", GetKeySC(pressedKey))
         if newSc = "sc029" {
             MsgBox("That key is reserved for opening the console. Pick a different key.", "Key Reserved", "IconX")
             ctrl.Text := original
@@ -1459,10 +1525,26 @@ KeyBindDisplay(scancode) {
     return scancode = "" ? "NONE" : StrUpper(GetKeyName(scancode))
 }
 
+; Presses and releases a key, held for holdMs (the game must see it down in at least one frame)
+TapKey(key, holdMs) {
+    Send("{" key " down}")
+    Sleep(holdMs)
+    Send("{" key " up}")
+    Sleep(holdMs)
+}
+
 TestPulse(key) {
-    GhostSend(key, true)
-    Sleep(300)
-    GhostSend(key, false)
+    global GhostPulses
+    if GhostPulses.Has(key)
+        return
+    GhostPulses[key] := true
+    try {
+        GhostSend(key, true)
+        Sleep(300)
+    } finally {
+        GhostPulses.Delete(key)
+        GhostSend(key, false)
+    }
 }
 
 GhostSend(ghost, down) {
@@ -1471,13 +1553,13 @@ GhostSend(ghost, down) {
 }
 
 SyncGhostKeys() {
-    global MovementMode, MovementKeyBinds, GhostKeys, GhostHeld
+    global MovementMode, MovementKeyBinds, GhostKeys, GhostHeld, GhostPulses
     global GhostHeartbeat, HeartbeatEveryMs, HeartbeatState, HeartbeatLastMs, HeartbeatSent
 
     static interactDownTick := 0
     for action, ghost in GhostKeys {
         scancode := MovementKeyBinds[action]
-        want := MovementMode && scancode != "" && GetKeyState(scancode, "P")
+        want := GhostPulses.Has(ghost) || (MovementMode && scancode != "" && GetKeyState(scancode, "P"))
         if action = "Interact" {
             if want && !GhostHeld[action]
                 interactDownTick := A_TickCount
@@ -1510,11 +1592,13 @@ FreeStuckMouseClip() {
         DllCall("ClipCursor", "Ptr", 0)
 }
 
-ReleaseGhostKeys(*) {
-    global GhostKeys, GhostHeld, GhostHeartbeat, HeartbeatState
+ReleaseGhostKeys(preservePulses := false) {
+    global GhostKeys, GhostHeld, GhostHeartbeat, HeartbeatState, GhostPulses
     SetControllerButtons(0)
     FreeStuckMouseClip()
     for action, ghost in GhostKeys {
+        if preservePulses && GhostPulses.Has(ghost)
+            continue
         if GhostHeld[action] || GetKeyState(ghost) {
             GhostSend(ghost, false)
             GhostHeld[action] := false
@@ -1782,14 +1866,14 @@ ReleaseSprintAlt() {
 
 UpdateLiveMovementMode() {
     global MovementModeRequested, MovementMode, ConsoleDialogOpen, MovementLiveText, GameConsoleOpen
-    validFocus := WinActive("ahk_exe SkyrimVR.exe") || WinActive("ahk_exe vrcompositor.exe")
-    if GameConsoleOpen && !ProcessExist("SkyrimVR.exe")
+    validFocus := GameWindowActive()
+    if GameConsoleOpen && !GamePid()
         GameConsoleOpen := false ; the game closed, so its console certainly did
     wasActive := MovementMode
     MovementMode := MovementModeRequested && !ConsoleDialogOpen && !GameConsoleOpen && validFocus
     if wasActive && !MovementMode {
         ReleaseSprintAlt()
-        ReleaseGhostKeys()
+        ReleaseGhostKeys(true)
     }
 		
     if !IsSet(MovementLiveText) || !IsObject(MovementLiveText)
@@ -1811,6 +1895,26 @@ UpdateLiveMovementMode() {
         MovementLiveText.Text := "Live: ACTIVE"
 }
 SetTimer(UpdateLiveMovementMode, 50)
+SetTimer(WriteGamePid, 1000)
+
+; The null driver checkbox is locked while SteamVR or the game runs: the change only applies after a SteamVR restart
+; anyway, and a stray click next to it in the middle of a session brought up the enabled / disabled popup.
+VrSessionRunning() {
+    return ProcessExist("vrserver.exe") || ProcessExist("vrmonitor.exe") || GamePid()
+}
+
+LockDriverCheckbox() {
+    global ChkDriverEnabled
+    static locked := -1
+    now := VrSessionRunning() ? 1 : 0
+    if now = locked
+        return
+    locked := now
+    ChkDriverEnabled.Enabled := !now
+    ChkDriverEnabled.Text := now ? "Enable Null Driver in SteamVR (locked while VR runs)" : "Enable Null Driver in SteamVR"
+}
+SetTimer(LockDriverCheckbox, 1000)
+LockDriverCheckbox()
 
 MainTick() {
     global MovementMode, MovementKeyBinds, ControllerButtonBits
@@ -1842,7 +1946,7 @@ LoadKeyBinds() {
         saved := IniRead(BootstrapFile, "KeyBinds", action, "")
         if saved = "" && ConfigFile != ""
             saved := IniRead(ConfigFile, "KeyBinds", action, "")
-        if ControllerButtonBits.Has(action) && StrLower(saved) = "none"
+        if (ControllerButtonBits.Has(action) || action = "PressA") && StrLower(saved) = "none"
             sc := ""
         else if saved != "" {
             if RegExMatch(saved, "i)^sc[0-9a-f]{3}$") && !forbidden.Has(StrUpper(saved)) && GetKeyName(saved) != ""
@@ -1850,6 +1954,9 @@ LoadKeyBinds() {
             else
                 LogError("LoadKeyBinds: ignoring invalid saved key '" saved "' for " action ", using the default.")
         }
+        ; Preserve an existing shortcut when Select's new default uses its base key.
+        if action = "PressA" && sc = MovementToggleBaseSC(IniRead(BootstrapFile, "KeyBinds", "MovementModeToggle", "^+m"))
+            sc := ""
         MovementKeyBinds[action] := sc
     }
 
@@ -1859,8 +1966,8 @@ LoadKeyBinds() {
         if key = ""
             continue
         if seen.Has(key) {
-            if ControllerButtonBits.Has(action) || ControllerButtonBits.Has(seen[key]) {
-                buttonAction := ControllerButtonBits.Has(action) ? action : seen[key]
+            if ControllerButtonBits.Has(action) || action = "PressA" || ControllerButtonBits.Has(seen[key]) {
+                buttonAction := (ControllerButtonBits.Has(action) || action = "PressA") ? action : seen[key]
                 MovementKeyBinds[buttonAction] := ""
                 LogError("LoadKeyBinds: " buttonAction " conflicts with existing key '" key "', leaving it unbound.")
                 MsgBox(MovementKeyLabels[buttonAction] "'s key is already used by an existing action. That binding was kept; choose a free key in Settings > Keybinds.", "Controller Button Unbound", "Iconi")
@@ -1992,7 +2099,7 @@ GameConsoleKeyContext() {
     global ConsoleCommandBusy
     if IsSet(ConsoleCommandBusy) && ConsoleCommandBusy
         return false
-    return WinActive("ahk_exe SkyrimVR.exe") || WinActive("ahk_exe vrcompositor.exe")
+    return GameWindowActive()
 }
 
 ToggleGameConsole(*) {
@@ -2568,7 +2675,8 @@ SendConsoleCommand(cmd) {
     if ConsoleCommandBusy
         return false
 
-    if !WinExist("ahk_exe SkyrimVR.exe") {
+    EnsureGameGroup()
+    if !WinExist("ahk_group SkyrimGame") {
         MsgBox("Couldn't find SkyrimVR.exe - is the game running?", "Not Found", "IconX")
         return false
     }
@@ -2583,8 +2691,8 @@ SendConsoleCommand(cmd) {
         ReleaseSprintAlt()
         ReleaseGhostKeys()
 
-        WinActivate("ahk_exe SkyrimVR.exe")
-        if !WinWaitActive("ahk_exe SkyrimVR.exe", , 2) {
+        WinActivate("ahk_group SkyrimGame")
+        if !WinWaitActive("ahk_group SkyrimGame", , 2) {
             MsgBox("SkyrimVR window didn't come to the front in time.", "Focus Failed", "IconX")
             return false
         }
@@ -2602,22 +2710,30 @@ SendConsoleCommand(cmd) {
         BlockInput("On")
         try {
             SendMode("Event")
+            ; Every key is held for a frame or more: the game reads the keyboard once a frame (30 FPS by default,
+            ; 33 ms), and a press shorter than that can fall between two frames.
+            hold := Max(ConsoleMS, 40)
             if !consoleWasOpen {
-                Send("{sc029}")
-                Sleep(ConsoleMS)
+                TapKey("sc029", hold)
+                ; The console opens over the next frames; what is typed before that is lost.
+                Sleep(Max(ConsoleMS * 4, 150))
             }
+            ; The console key is a dead key on some layouts (^ on German ones): the next key is combined with it, so
+            ; ^ characters end up in the line ("^^tgm" fails without a word). A space ends a pending dead key (as ^ or
+            ; a space), and backspaces clear what it and the console key left. On other layouts the space is just
+            ; deleted again.
+            TapKey("Space", hold)
+            Loop 4
+                TapKey("Backspace", hold)
             Send("{Ctrl down}")
-            Sleep(ConsoleMS)
-            Send("{sc02F down}")
-            Sleep(ConsoleMS)
-            Send("{sc02F up}")
-            Sleep(ConsoleMS)
+            Sleep(hold)
+            TapKey("sc02F", hold)
             Send("{Ctrl up}")
-            Sleep(ConsoleMS)
-            Send("{Enter}")
-            Sleep(ConsoleMS)
+            Sleep(hold)
+            TapKey("Enter", hold)
+            Sleep(hold)
             if !consoleWasOpen
-                Send("{sc029}")
+                TapKey("sc029", hold)
         } finally {
             BlockInput("Off")
             Send("{Ctrl up}")
@@ -2929,6 +3045,10 @@ ToggleDriverFromTray(*) {
 
 ToggleDriverEnabled(ctrl, *) {
     global StagingFile
+    if VrSessionRunning() {
+        ctrl.Value := !ctrl.Value ; a click that got through before the lock: undo it, change nothing
+        return
+    }
     if ctrl.Value {
         InstallModded()
     } else {
@@ -3293,7 +3413,7 @@ SetupStepStates() {
     done["driver"]  := (SetupInstalledVer != "" && !DriverIsOlder(SetupInstalledVer) && DriverDllProblem(DriverDir) = "")
     done["enabled"] := (Active = "Modded")
     done["steamvr"] := ProcessExist("vrserver.exe") ? true : false
-    done["game"]    := ProcessExist("SkyrimVR.exe") ? true : false
+    done["game"]    := GamePid() ? true : false
     done["move"]    := MovementModeRequested ? true : false
     return done
 }
