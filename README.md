@@ -51,7 +51,7 @@ The look and interact keys are *held* keys, and Windows never releases a key tha
 
 ### Controller-input checkpoint (unreleased)
 
-Run `frontend/SkyrimVR Devkit.ahk` with the matching fork-built DLL and `resources/input/mycontroller_profile.json` installed under the null driver's `resources/input/`. Settings > Keybinds exposes Right Grip (G), L Pad Click and L Pad Touch (both initially unbound). Bindings persist; Backspace clears a controller bind. Existing conflicting binds are preserved.
+Run `frontend/SkyrimVR Devkit.ahk` with the matching fork-built DLL and `resources/input/mycontroller_profile.json` installed under the null driver's `resources/input/`. Settings > Keybinds exposes Right Grip (H), L Pad Click and L Pad Touch (both initially unbound). Bindings persist; Backspace clears a controller bind. Existing conflicting binds are preserved.
 
 These buttons share a four-byte mapping, not F24. Bound keys are swallowed only while Movement Mode is active; pausing and the existing F23 timeout release the inputs. Left click and touch are independent: to test both, hold the touch key while pressing the click key. Status reports `controller_buttons_mapping_valid`, `right_grip*`, `left_trackpad_click*`, `left_trackpad_touch*`, and `left_trackpad_ever_seen`; these are separate from ghost-key history.
 

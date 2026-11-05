@@ -113,21 +113,26 @@ CheckShortcuts() {
 
 CheckSelectBindings() {
     global AllBindActions := ["Interact", "RightGrip", "PressA"]
-    global MovementKeyDefaults := Map("Interact", "sc013", "RightGrip", "sc022", "PressA", "sc023")
+    global MovementKeyDefaults := Map("Interact", "sc013", "RightGrip", "sc023", "PressA", "sc022")
     global MovementKeyLabels := Map("Interact", "Interact", "RightGrip", "RightGrip", "PressA", "Select (A)")
     global ControllerButtonBits := Map("RightGrip", 65536), MovementKeyBinds := Map(), ConfigFile := ""
     global BootstrapFile := A_ScriptDir "\select.ini"
-    IniWrite("sc023", BootstrapFile, "KeyBinds", "Interact")
+    IniWrite("sc022", BootstrapFile, "KeyBinds", "Interact")
     LoadKeyBinds()
-    Check(MovementKeyBinds["Interact"] = "sc023", "Select displaced an existing H binding")
-    Check(MovementKeyBinds["RightGrip"] = "sc022", "Select displaced Right Grip")
+    Check(MovementKeyBinds["Interact"] = "sc022", "Select displaced an existing G binding")
+    Check(MovementKeyBinds["RightGrip"] = "sc023", "Select displaced Right Grip")
     Check(MovementKeyBinds["PressA"] = "", "Select retained a conflicting default")
     FileDelete(BootstrapFile)
     IniWrite("^+h", BootstrapFile, "KeyBinds", "MovementModeToggle")
     LoadKeyBinds()
+    Check(MovementKeyBinds["RightGrip"] = "", "Right Grip default conflicts with a saved shortcut")
+    Check(MovementKeyBinds["PressA"] = "sc022", "Select lost its default to another action's conflict")
+    FileDelete(BootstrapFile)
+    IniWrite("^+g", BootstrapFile, "KeyBinds", "MovementModeToggle")
+    LoadKeyBinds()
     Check(MovementKeyBinds["PressA"] = "", "Select default conflicts with a saved shortcut")
     LoadMovementToggleHotkey()
-    Check(MovementToggleHotkeyDisplay() = "Ctrl+Shift+H", "Select displaced the saved shortcut")
+    Check(MovementToggleHotkeyDisplay() = "Ctrl+Shift+G", "Select displaced the saved shortcut")
     SaveKeyBind("PressA", "none")
     IniDelete(BootstrapFile, "KeyBinds", "MovementModeToggle")
     LoadKeyBinds()
@@ -135,7 +140,7 @@ CheckSelectBindings() {
 }
 
 CheckSelectPulse() {
-    global MovementMode := false, MovementKeyBinds := Map("PressA", "sc023")
+    global MovementMode := false, MovementKeyBinds := Map("PressA", "sc022")
     global GhostKeys := Map("PressA", "F24"), GhostHeld := Map("PressA", false), GhostPulses := Map()
     global GhostHeartbeat := "F23", HeartbeatState := false, LogicalKeys := Map()
     interrupted := false, ticks := 0

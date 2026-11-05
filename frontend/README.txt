@@ -34,7 +34,7 @@ LAUNCHER SUPPORT
 
 INTERACTING WITH THE STEAMVR HOME WINDOW
 
-- Select defaults to H in this fork (upstream uses G, already assigned to Right Grip here) and selects what you are looking at in the SteamVR Home overlay.
+- Select defaults to G, as upstream, and selects what you are looking at in the SteamVR Home overlay.
 - Button is rebindable in Settings > Keybinds.
   Backspace clears Select; saved settings persist. If H is already bound to another action or is the
   Movement Mode shortcut's base key, Select starts unbound instead of replacing that binding.
@@ -144,9 +144,9 @@ CONTROLS
   Settings > General > Enable MM Notification is off by default and persists across restarts.
   When enabled, each toggle requests a silent, temporary Windows ON/OFF tray notification.
   Windows controls its duration and may suppress it through notification or Do Not Disturb settings.
-- Unreleased fork checkpoint: Right Grip defaults to G in Settings > Keybinds; Backspace clears it.
+- Unreleased fork checkpoint: Right Grip defaults to H in Settings > Keybinds; Backspace clears it.
   The binding persists, is swallowed only in active Movement Mode, and releases on pause or heartbeat loss.
-  An existing G bind wins and leaves Right Grip unbound. Use the matching fork DLL and input profile.
+  An existing H bind wins and leaves Right Grip unbound. Use the matching fork DLL and input profile.
   SteamVR/SkyrimVR verification is owner-run. Do not use Download/Update or Repair: those still use upstream.
 - Settings > Controls: turn sensitivity, base turn speed, console command delay (raise it if commands fail on
   a slow system), auto console view, and the mouse look settings. Changes apply live, with no SteamVR restart.

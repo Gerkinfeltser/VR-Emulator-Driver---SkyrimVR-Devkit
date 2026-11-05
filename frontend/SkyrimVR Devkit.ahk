@@ -57,10 +57,10 @@ MovementKeyDefaults := Map(
     "LookLeft",    "sc14B", ; Left arrow
     "LookRight",   "sc14D", ; Right arrow
     "Interact",    "sc013", ; R
-    "RightGrip",   "sc022", ; G
+    "RightGrip",   "sc023", ; H (G is Select, as upstream)
     "LeftTrackpadClick", "",
     "LeftTrackpadTouch", "",
-    "PressA",      "sc023"  ; H (G is the fork's Right Grip)
+    "PressA",      "sc022"  ; G
 )
 ; Defaults until LoadKeyBinds runs: MainTick starts first and must find every action's key.
 MovementKeyBinds := MovementKeyDefaults.Clone()
@@ -326,7 +326,7 @@ HowToSections := [
         "This section explains how to move, look around and do things.`n`n"
 		"It's quite simple to be fair. You move around with WASD, look around with the arrow keys, navigate system menus with Q/E, interact with objects by pressing R, sprint by using Left Shift. No arrow keys on your keyboard (or they don't work)? Open Settings > Keybinds and rebind look, interact and the menu keys to whatever you like.`n`n"
 		"Most stock Skyrim keys work. TAB opens the cross menu, ESC opens the settings menu, J opens the journal, etc.`n`n"
-		"If you need to look at something more closey, such as a menu or the console to read data off of it, open 'Quick Commands...' and press 'Move to Console View', which puts the camera at a spot where the console is readable. Tick 'Auto console view' in Settings > Controls to move the camera in when you open the game console with ~ and back when you close it. Quick Commands also has 'Select (A + trigger)' for SteamVR overlay interaction; hold the rebindable Select key (H by default in this fork) for a longer press. There's no free camera movement any more, because moving the camera directly tends to screw things up.`n`n"
+		"If you need to look at something more closey, such as a menu or the console to read data off of it, open 'Quick Commands...' and press 'Move to Console View', which puts the camera at a spot where the console is readable. Tick 'Auto console view' in Settings > Controls to move the camera in when you open the game console with ~ and back when you close it. Quick Commands also has 'Select (A + trigger)' for SteamVR overlay interaction; hold the rebindable Select key (G by default) for a longer press. There's no free camera movement any more, because moving the camera directly tends to screw things up.`n`n"
 			"MOUSE LOOK: you can also look around with the mouse. While Movement Mode is live and SkyrimVR is focused, RIGHT-CLICK in the game to turn mouse look on; the cursor gets held in the middle of the window and moving the mouse turns the view. Right-click again to turn it off and get your cursor back. It turns itself off, within about half a second, whenever Movement Mode pauses (console open, you click away from the game, the devkit closes), so you'll never be stuck without a cursor. Sensitivity, invert Y and an off switch are in Settings > Controls. This is done by the null driver, so it needs the v2.0 driver."
     )},
     {Title: "Movement Mode", Body:
@@ -1958,8 +1958,8 @@ LoadKeyBinds() {
             else
                 LogError("LoadKeyBinds: ignoring invalid saved key '" saved "' for " action ", using the default.")
         }
-        ; Preserve an existing shortcut when Select's new default uses its base key.
-        if action = "PressA" && sc = MovementToggleBaseSC(IniRead(BootstrapFile, "KeyBinds", "MovementModeToggle", "^+m"))
+        ; Preserve an existing shortcut when a controller button's default uses its base key.
+        if (ControllerButtonBits.Has(action) || action = "PressA") && sc = MovementToggleBaseSC(IniRead(BootstrapFile, "KeyBinds", "MovementModeToggle", "^+m"))
             sc := ""
         MovementKeyBinds[action] := sc
     }
