@@ -62,7 +62,8 @@ MovementKeyDefaults := Map(
     "LeftTrackpadTouch", "",
     "PressA",      "sc023"  ; H (G is the fork's Right Grip)
 )
-MovementKeyBinds := Map()
+; Defaults until LoadKeyBinds runs: MainTick starts first and must find every action's key.
+MovementKeyBinds := MovementKeyDefaults.Clone()
 ControllerPoses := Map()
 ControllerPoseEdits := Map()
 ControllerPoseDefaults := Map(
@@ -1850,6 +1851,9 @@ if IniRead(BootstrapFile, "Setup", "Completed", "0") != "1" {
         ShowSetupChecklist()
 }
 
+; Set before the timer: startup can still be short of the update code when it fires (a dialog open).
+UpdateFetch := Map()
+UpdateFetchBusy := false
 SetTimer(CheckForUpdates, -1500)
 
 WriteDriverControls()
@@ -3066,8 +3070,6 @@ ToggleDriverEnabled(ctrl, *) {
 RepoApi := "https://api.github.com/repos/DubiousDuo/VR-Emulator-Driver---SkyrimVR-Devkit"
 UpdateCheckEveryHours := 6
 
-UpdateFetch := Map()
-UpdateFetchBusy := false
 
 AsyncHttpGet(url) {
     try {
