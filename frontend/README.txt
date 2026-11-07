@@ -148,7 +148,7 @@ CONTROLS
   The binding persists, is swallowed only in active Movement Mode, and releases on pause or heartbeat loss.
   An existing H bind wins and leaves Right Grip unbound. Use the matching fork DLL and input profile.
   SteamVR/SkyrimVR verification is owner-run. Do not use Download/Update or Repair: those still use upstream.
-- Toggle SteamVR Dashboard (main window, under Movement Mode; also in Quick Commands) opens or closes the
+- Toggle Dashboard (main window, under Movement Mode; also in Quick Commands) opens or closes the
   dashboard. While it is open, controller buttons (Interact, Grip, Select, trigger) go to the dashboard, not
   the game; look keys still move the view.
 - Settings > Controls: turn sensitivity, base turn speed, console command delay (raise it if commands fail on

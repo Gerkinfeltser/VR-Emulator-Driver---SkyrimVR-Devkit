@@ -244,7 +244,7 @@ CheckDriverToggle() {
 }
 
 CheckWindowIcons() {
-    global MainGui := Gui(), MovementModeRequested, TrayMovementIconAttemptedState := ""
+    global MainGui := Gui(), MovementModeRequested, MovementMode, TrayMovementIconAttemptedState := ""
     hidden := Gui()
     MainGui.Show("NA w200 h80")
     DetectHiddenWindows(false)
